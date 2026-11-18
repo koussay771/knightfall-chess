@@ -886,6 +886,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                               flipped: isFlipped,
                               lightSquareColor: themeColors[0],
                               darkSquareColor: themeColors[1],
+                              boardTheme: themeId,
                               pieceTheme: pieceTheme,
                               shakeTrigger: _shakeTrigger,
                               onSquareTapped: _handleSquareTapped,

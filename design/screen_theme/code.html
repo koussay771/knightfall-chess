@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-primary-fixed-variant": "#005228", "surface-dim": "#0e141c", "surface-container-low": "#161c24", "secondary-container": "#ffdb3c", "primary": "#f1ffef", "on-secondary-fixed-variant": "#544600", "inverse-primary": "#006d37", "on-primary-fixed": "#00210c", "on-tertiary-container": "#bf1f27", "tertiary-container": "#ffd5d1", "tertiary-fixed": "#ffdad7", "surface-container-lowest": "#090f16", "error": "#ffb4ab", "on-background": "#dde3ee", "surface-container-highest": "#2f353e", "on-tertiary-fixed-variant": "#930013", "secondary": "#fff9ef", "on-primary-container": "#007139", "on-error-container": "#ffdad6", "on-error": "#690005", "surface": "#0e141c", "on-secondary-fixed": "#221b00", "outline-variant": "#3b4b3d", "primary-fixed": "#60ff99", "surface-container-high": "#242a33", "primary-container": "#00ff88", "on-secondary-container": "#725f00", "secondary-fixed-dim": "#e9c400", "outline": "#849585", "surface-bright": "#343a42", "on-surface-variant": "#b9cbb9", "on-tertiary": "#68000a", "on-primary": "#003919", "on-tertiary-fixed": "#410004", "error-container": "#93000a", "primary-fixed-dim": "#00e479", "surface-variant": "#2f353e", "surface-tint": "#00e479", "on-surface": "#dde3ee", "tertiary": "#fffaf9", "inverse-on-surface": "#2b3139", "inverse-surface": "#dde3ee", "tertiary-fixed-dim": "#ffb3ad", "background": "#0e141c", "secondary-fixed": "#ffe16d", "surface-container": "#1a2028", "on-secondary": "#3a3000" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "space-xl": "2rem", "gutter-mobile": "0.5rem", "space-sm": "0.5rem", "space-md": "1rem", "margin-mobile": "1rem", "space-lg": "1.5rem", "space-xs": "0.25rem", "gutter": "1rem", "margin": "1.5rem" }, "fontFamily": { "label-clock": ["JetBrains Mono"], "headline-xl-mobile": ["Space Grotesk"], "headline-lg-mobile": ["Space Grotesk"], "headline-xl": ["Space Grotesk"], "label-sm": ["JetBrains Mono"], "headline-lg": ["Space Grotesk"], "label-clock-mobile": ["JetBrains Mono"], "label-notation": ["JetBrains Mono"], "headline-md": ["Space Grotesk"], "body-md": ["Inter"], "body-sm": ["Inter"], "body-lg": ["Inter"] }, "fontSize": { "label-clock": ["36px", { "lineHeight": "40px", "fontWeight": "700" }], "headline-xl-mobile": ["30px", { "lineHeight": "36px", "fontWeight": "700" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }], "headline-xl": ["40px", { "lineHeight": "48px", "fontWeight": "700" }], "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "600" }], "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }], "label-clock-mobile": ["28px", { "lineHeight": "32px", "fontWeight": "700" }], "label-notation": ["13px", { "lineHeight": "18px", "fontWeight": "500" }], "headline-md": ["22px", { "lineHeight": "28px", "fontWeight": "600" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }] } } } };</script><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-background text-on-surface font-body-md text-body-md min-h-screen flex flex-col selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 w-full z-50 bg-surface/85 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-28 px-gutter-mobile flex flex-col justify-between py-2"><div class="h-12 flex items-center justify-between gap-space-xs"><div class="flex items-center gap-space-xs min-w-0"><button class="w-11 h-11 flex items-center justify-center rounded-DEFAULT text-on-surface hover:bg-surface-variant/30 active:scale-95 transition-all flex-shrink-0" onclick="history.back()"><span class="material-symbols-outlined text-[20px]">arrow_back</span></button><div class="flex flex-col min-w-0"><div class="flex items-center gap-1.5"><h1 class="font-headline-md text-headline-md tracking-tight uppercase truncate text-on-surface leading-none">Board Canvas</h1><div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-DEFAULT bg-surface-container-high"><span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span><span class="font-label-sm text-label-sm text-primary-container tracking-wider uppercase">VULKAN 60FPS</span></div></div></div></div><div class="flex items-center gap-space-xs flex-shrink-0"><button class="w-11 h-11 flex items-center justify-center rounded-DEFAULT text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/30 active:scale-95 transition-all"><span class="material-symbols-outlined text-[20px]">settings</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-[0_0_12px_rgba(0,255,136,0.2)]"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div><nav class="flex items-center gap-1 bg-surface-container-lowest p-1 rounded-DEFAULT mx-1" data-active-classes="bg-surface-container-high text-primary-container shadow-[0_0_8px_rgba(0,255,136,0.15)]"><a aria-current="page" class="flex-1 flex items-center justify-center h-8 rounded-DEFAULT font-label-sm tracking-wider uppercase transition-all bg-surface-container-high text-primary-container shadow-[0_0_8px_rgba(0,255,136,0.15)]" data-path="board-canvas" href="#"><span class="material-symbols-outlined text-[16px] mr-1">grid_view</span>Board Canvas</a><a class="flex-1 flex items-center justify-center h-8 rounded-DEFAULT font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface tracking-wider uppercase transition-all" data-path="piece-matrix" href="#"><span class="material-symbols-outlined text-[16px] mr-1">token</span>Piece Matrix</a><a class="flex-1 flex items-center justify-center h-8 rounded-DEFAULT font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface tracking-wider uppercase transition-all" data-path="showcase" href="#"><span class="material-symbols-outlined text-[16px] mr-1">visibility</span>Showcase</a></nav></div></header><main class="flex-1 w-full bg-surface pt-28 pb-safe"><div class="flex flex-col w-full pb-6 px-margin-mobile">
+<!-- Compact Sub-bar / Mode Selector -->
+<div class="flex items-center justify-between mb-space-sm pt-space-xs">
+<div class="flex items-center gap-1.5">
+<span class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-primary-container shadow-[0_0_8px_rgba(0,255,136,0.8)]"></span>
+<span class="font-headline-md text-headline-md tracking-tight text-on-surface uppercase text-[15px] leading-tight">CANVAS PRESETS</span>
+<span class="px-1.5 py-0.5 rounded-DEFAULT bg-surface-container-high text-primary-container font-label-sm text-label-sm">6 ACTIVE</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-lowest p-0.5 rounded-DEFAULT">
+<span class="px-2 py-0.5 rounded-DEFAULT bg-surface-container-high text-on-surface font-label-sm text-label-sm">CANVAS</span>
+<span class="px-2 py-0.5 text-on-surface-variant font-label-sm text-label-sm opacity-60">MATRIX</span>
+<span class="px-2 py-0.5 text-on-surface-variant font-label-sm text-label-sm opacity-60">SHOWCASE</span>
+</div>
+</div>
+<!-- Hero Live 8x8 Board Preview Container -->
+<div class="relative bg-surface-container-low rounded-xl p-space-sm shadow-xl overflow-hidden mb-space-md">
+<!-- Ambient Prism Glow Background -->
+<div class="absolute -top-12 -right-12 w-48 h-48 bg-primary-container/10 rounded-full blur-3xl pointer-events-none"></div>
+<!-- Preview Header Meta -->
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-DEFAULT bg-surface-container-highest flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-headline-md text-[14px] text-on-surface" id="active-theme-name">Obsidian Glass</span>
+<span class="px-1 rounded-DEFAULT bg-primary-container/15 text-primary-container font-label-sm text-label-sm text-[10px]">CURRENT</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[11px]" id="active-theme-desc">Smoked glass prism • Refraction layer v2.4</p>
+</div>
+</div>
+<!-- Quick Action Badges -->
+<div class="flex items-center gap-1.5">
+<div class="flex items-center gap-1 px-1.5 py-0.5 rounded-DEFAULT bg-surface-container-highest">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-primary-container">RENDER: 2.1ms</span>
+</div>
+<button class="w-7 h-7 flex items-center justify-center rounded-DEFAULT bg-surface-container-high text-on-surface hover:text-primary-container active:scale-90 transition-all" id="flip-board-btn">
+<span class="material-symbols-outlined text-[15px]">sync</span>
+</button>
+</div>
+</div>
+<!-- 8x8 Tactile Chessboard Rendering -->
+<div class="relative aspect-square w-full max-w-[340px] mx-auto bg-surface-container-lowest p-1.5 rounded-lg shadow-inner">
+<!-- File Notation Labels (Top) -->
+<div class="absolute top-0.5 left-5 right-2 flex justify-around pointer-events-none text-on-surface-variant/40 font-label-sm text-[9px]">
+<span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+</div>
+<!-- 8x8 Grid Canvas -->
+<div class="w-full h-full grid grid-cols-8 grid-rows-8 rounded-DEFAULT overflow-hidden transition-all duration-300" id="chessboard-grid">
+<!-- 64 Squares dynamically styled with custom theme attributes -->
+<!-- Row 8 -->
+<div class="sq-light flex items-center justify-center relative"><span class="text-on-surface-variant/20 absolute top-0.5 left-0.5 font-label-sm text-[8px]">8</span><span class="material-symbols-outlined text-[17px] text-on-surface-variant/70">shield</span></div>
+<div class="sq-dark flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-on-surface-variant/70">explore</span></div>
+<div class="sq-light flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-on-surface-variant/70">change_history</span></div>
+<div class="sq-dark flex items-center justify-center"><span class="material-symbols-outlined text-[18px] text-on-surface-variant/90">crown</span></div>
+<div class="sq-light flex items-center justify-center"><span class="material-symbols-outlined text-[19px] text-on-surface-variant/90">local_fire_department</span></div>
+<div class="sq-dark flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-on-surface-variant/70">change_history</span></div>
+<div class="sq-light flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-on-surface-variant/70">explore</span></div>
+<div class="sq-dark flex items-center justify-center"><span class="material-symbols-outlined text-[17px] text-on-surface-variant/70">shield</span></div>
+<!-- Row 7 (Pawns) -->
+<div class="sq-dark flex items-center justify-center relative"><span class="text-on-surface-variant/20 absolute top-0.5 left-0.5 font-label-sm text-[8px]">7</span><span class="w-2 h-2 rounded-full bg-on-surface-variant/50"></span></div>
+<div class="sq-light flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-on-surface-variant/50"></span></div>
+<div class="sq-dark flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-on-surface-variant/50"></span></div>
+<div class="sq-light flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-on-surface-variant/50"></span></div>
+<div class="sq-dark flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-on-surface-variant/50"></span></div>
+<div class="sq-light flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-on-surface-variant/50"></span></div>
+<div class="sq-dark flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-on-surface-variant/50"></span></div>
+<div class="sq-light flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-on-surface-variant/50"></span></div>
+<!-- Row 6 -->
+<div class="sq-light relative"><span class="text-on-surface-variant/20 absolute top-0.5 left-0.5 font-label-sm text-[8px]">6</span></div><div class="sq-dark"></div><div class="sq-light"></div><div class="sq-dark"></div><div class="sq-light"></div><div class="sq-dark"></div><div class="sq-light"></div><div class="sq-dark"></div>
+<!-- Row 5 -->
+<div class="sq-dark relative"><span class="text-on-surface-variant/20 absolute top-0.5 left-0.5 font-label-sm text-[8px]">5</span></div><div class="sq-light"></div><div class="sq-dark"></div>
+<!-- Active e4/e5 Tactical Focal Point -->
+<div class="sq-light flex items-center justify-center bg-primary-container/20"><span class="w-2.5 h-2.5 rounded-full bg-primary-container shadow-[0_0_8px_rgba(0,255,136,1)]"></span></div>
+<div class="sq-dark"></div><div class="sq-light"></div><div class="sq-dark"></div><div class="sq-light"></div>
+<!-- Row 4 -->
+<div class="sq-light relative"><span class="text-on-surface-variant/20 absolute top-0.5 left-0.5 font-label-sm text-[8px]">4</span></div><div class="sq-dark"></div><div class="sq-light"></div><div class="sq-dark"></div>
+<div class="sq-light flex items-center justify-center bg-secondary-container/20"><span class="w-2.5 h-2.5 rounded-full bg-secondary-container shadow-[0_0_6px_rgba(255,219,60,0.8)]"></span></div>
+<div class="sq-dark flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-primary-container animate-pulse">explore</span></div>
+<div class="sq-light"></div><div class="sq-dark"></div>
+<!-- Row 3 -->
+<div class="sq-dark relative"><span class="text-on-surface-variant/20 absolute top-0.5 left-0.5 font-label-sm text-[8px]">3</span></div><div class="sq-light"></div><div class="sq-dark"></div><div class="sq-light"></div><div class="sq-dark"></div><div class="sq-light"></div><div class="sq-dark"></div><div class="sq-light"></div>
+<!-- Row 2 (White Pawns) -->
+<div class="sq-light flex items-center justify-center relative"><span class="text-on-surface-variant/20 absolute top-0.5 left-0.5 font-label-sm text-[8px]">2</span><span class="w-2 h-2 rounded-full bg-primary-container"></span></div>
+<div class="sq-dark flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-primary-container"></span></div>
+<div class="sq-light flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-primary-container"></span></div>
+<div class="sq-dark flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-primary-container"></span></div>
+<div class="sq-light flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-primary-container"></span></div>
+<div class="sq-dark flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-primary-container"></span></div>
+<div class="sq-light flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-primary-container"></span></div>
+<div class="sq-dark flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-primary-container"></span></div>
+<!-- Row 1 (White Officers) -->
+<div class="sq-dark flex items-center justify-center relative"><span class="text-on-surface-variant/20 absolute top-0.5 left-0.5 font-label-sm text-[8px]">1</span><span class="material-symbols-outlined text-[17px] text-primary-container">shield</span></div>
+<div class="sq-light flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-primary-container">explore</span></div>
+<div class="sq-dark flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-primary-container">change_history</span></div>
+<div class="sq-light flex items-center justify-center"><span class="material-symbols-outlined text-[18px] text-primary-container">crown</span></div>
+<div class="sq-dark flex items-center justify-center"><span class="material-symbols-outlined text-[19px] text-primary-container">local_fire_department</span></div>
+<div class="sq-light flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-primary-container">change_history</span></div>
+<div class="sq-dark flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-primary-container">explore</span></div>
+<div class="sq-light flex items-center justify-center"><span class="material-symbols-outlined text-[17px] text-primary-container">shield</span></div>
+</div>
+<!-- Rank Notation Labels (Right) -->
+<div class="absolute bottom-1 right-0.5 top-2 flex flex-col justify-around pointer-events-none text-on-surface-variant/40 font-label-sm text-[9px]">
+<span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+</div>
+</div>
+<!-- Active Style Specs Pill Strip -->
+<div class="mt-space-sm flex items-center justify-between px-1">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="font-label-notation text-label-notation text-on-surface text-[11px]" id="engine-fps">Vulkan Engine • 60 FPS Locked</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[11px]" id="theme-spec-code">SPEC-FID-990</span>
+</div>
+</div>
+<!-- Board Presets Section Header -->
+<div class="flex items-center justify-between mb-space-xs px-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">CANVAS STYLES (6)</span>
+<span class="font-label-sm text-label-sm text-primary-container">TAP TO PREVIEW</span>
+</div>
+<!-- Grid of 6 Board Canvas Theme Cards (2 Columns x 3 Rows) -->
+<div class="grid grid-cols-2 gap-space-xs mb-space-md" id="presets-grid">
+<!-- Card 1: Obsidian Glass (Selected) -->
+<div class="theme-card relative bg-surface-container-high p-space-sm rounded-xl cursor-pointer transition-all active:scale-[0.98] shadow-md flex flex-col justify-between" data-dark="#11161f" data-desc="Deep smoked glass prism • Tournament Rated" data-id="obsidian" data-light="#222b38" data-name="Obsidian Glass" data-spec="SPEC-FID-990">
+<div class="flex items-start justify-between mb-2">
+<!-- 2x2 Checker Swatch -->
+<div class="w-8 h-8 rounded-DEFAULT overflow-hidden grid grid-cols-2 grid-rows-2 shadow-inner">
+<div class="bg-[#222b38]"></div>
+<div class="bg-[#11161f]"></div>
+<div class="bg-[#11161f]"></div>
+<div class="bg-[#222b38]"></div>
+</div>
+<!-- Radio Selector -->
+<div class="radio-indicator w-5 h-5 rounded-full bg-primary-container flex items-center justify-center shadow-[0_0_8px_rgba(0,255,136,0.6)]">
+<span class="material-symbols-outlined text-[14px] text-on-primary-container font-bold">check</span>
+</div>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-[13px] text-on-surface leading-tight mb-0.5">Obsidian Glass</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[10px] leading-tight mb-2">Glass Prism Tournament</p>
+</div>
+<div class="flex items-center justify-between pt-1 mt-auto">
+<span class="font-label-sm text-label-sm text-primary-container text-[10px] bg-surface-container-lowest px-1 rounded">#0F1118</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[9px] uppercase">RATED</span>
+</div>
+</div>
+<!-- Card 2: Neon Cyber -->
+<div class="theme-card relative bg-surface-container-low p-space-sm rounded-xl cursor-pointer transition-all active:scale-[0.98] flex flex-col justify-between" data-dark="#08140f" data-desc="Glow Emerald gridlines • High-adrenaline Blitz Opt" data-id="neon" data-light="#122a21" data-name="Neon Cyber" data-spec="BLITZ-CYBER-88">
+<div class="flex items-start justify-between mb-2">
+<div class="w-8 h-8 rounded-DEFAULT overflow-hidden grid grid-cols-2 grid-rows-2 shadow-inner">
+<div class="bg-[#122a21]"></div>
+<div class="bg-[#08140f]"></div>
+<div class="bg-[#08140f]"></div>
+<div class="bg-[#122a21]"></div>
+</div>
+<div class="radio-indicator w-5 h-5 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="w-2 h-2 rounded-full bg-transparent"></span>
+</div>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-[13px] text-on-surface leading-tight mb-0.5">Neon Cyber</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[10px] leading-tight mb-2">Emerald Grid Blitz</p>
+</div>
+<div class="flex items-center justify-between pt-1 mt-auto">
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px] bg-surface-container-lowest px-1 rounded">#090E17</span>
+<span class="font-label-sm text-label-sm text-primary-container text-[9px] uppercase">FAST</span>
+</div>
+</div>
+<!-- Card 3: Classic Cyber Slate -->
+<div class="theme-card relative bg-surface-container-low p-space-sm rounded-xl cursor-pointer transition-all active:scale-[0.98] flex flex-col justify-between" data-dark="#1B222D" data-desc="Ultra-matte slate • Official FIDE Tournament spec" data-id="slate" data-light="#2C3647" data-name="Classic Slate" data-spec="FIDE-APP-1924">
+<div class="flex items-start justify-between mb-2">
+<div class="w-8 h-8 rounded-DEFAULT overflow-hidden grid grid-cols-2 grid-rows-2 shadow-inner">
+<div class="bg-[#2C3647]"></div>
+<div class="bg-[#1B222D]"></div>
+<div class="bg-[#1B222D]"></div>
+<div class="bg-[#2C3647]"></div>
+</div>
+<div class="radio-indicator w-5 h-5 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="w-2 h-2 rounded-full bg-transparent"></span>
+</div>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-[13px] text-on-surface leading-tight mb-0.5">Cyber Slate</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[10px] leading-tight mb-2">FIDE Approved Spec</p>
+</div>
+<div class="flex items-center justify-between pt-1 mt-auto">
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px] bg-surface-container-lowest px-1 rounded">#1B222D</span>
+<span class="font-label-sm text-label-sm text-secondary-container text-[9px] uppercase">MATTE</span>
+</div>
+</div>
+<!-- Card 4: Midnight Dark -->
+<div class="theme-card relative bg-surface-container-low p-space-sm rounded-xl cursor-pointer transition-all active:scale-[0.98] flex flex-col justify-between" data-dark="#080b0f" data-desc="Pitch OLED stealth black • Zero battery consumption" data-id="midnight" data-light="#1a202a" data-name="Midnight Dark" data-spec="OLED-ZERO-P0">
+<div class="flex items-start justify-between mb-2">
+<div class="w-8 h-8 rounded-DEFAULT overflow-hidden grid grid-cols-2 grid-rows-2 shadow-inner">
+<div class="bg-[#1a202a]"></div>
+<div class="bg-[#080b0f]"></div>
+<div class="bg-[#080b0f]"></div>
+<div class="bg-[#1a202a]"></div>
+</div>
+<div class="radio-indicator w-5 h-5 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="w-2 h-2 rounded-full bg-transparent"></span>
+</div>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-[13px] text-on-surface leading-tight mb-0.5">Midnight Dark</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[10px] leading-tight mb-2">Pitch OLED Stealth</p>
+</div>
+<div class="flex items-center justify-between pt-1 mt-auto">
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px] bg-surface-container-lowest px-1 rounded">#0A0D12</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[9px] uppercase">-94% PWR</span>
+</div>
+</div>
+<!-- Card 5: Tactical Dark -->
+<div class="theme-card relative bg-surface-container-low p-space-sm rounded-xl cursor-pointer transition-all active:scale-[0.98] flex flex-col justify-between" data-dark="#141C18" data-desc="Ballistic military olive &amp; combat muted field greens" data-id="tactical-dark" data-light="#233129" data-name="Tactical Dark" data-spec="MIL-TAC-77B">
+<div class="flex items-start justify-between mb-2">
+<div class="w-8 h-8 rounded-DEFAULT overflow-hidden grid grid-cols-2 grid-rows-2 shadow-inner">
+<div class="bg-[#233129]"></div>
+<div class="bg-[#141C18]"></div>
+<div class="bg-[#141C18]"></div>
+<div class="bg-[#233129]"></div>
+</div>
+<div class="radio-indicator w-5 h-5 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="w-2 h-2 rounded-full bg-transparent"></span>
+</div>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-[13px] text-on-surface leading-tight mb-0.5">Tactical Dark</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[10px] leading-tight mb-2">Ballistic Field Tones</p>
+</div>
+<div class="flex items-center justify-between pt-1 mt-auto">
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px] bg-surface-container-lowest px-1 rounded">#141C18</span>
+<span class="font-label-sm text-label-sm text-primary-container text-[9px] uppercase">COMBAT</span>
+</div>
+</div>
+<!-- Card 6: Tactical Light -->
+<div class="theme-card relative bg-surface-container-low p-space-sm rounded-xl cursor-pointer transition-all active:scale-[0.98] flex flex-col justify-between" data-dark="#3D4B58" data-desc="Direct sunlight safe high contrast • Field anti-glare" data-id="tactical-light" data-light="#8A9BA8" data-name="Tactical Light" data-spec="SUN-GLARE-4X">
+<div class="flex items-start justify-between mb-2">
+<div class="w-8 h-8 rounded-DEFAULT overflow-hidden grid grid-cols-2 grid-rows-2 shadow-inner">
+<div class="bg-[#8A9BA8]"></div>
+<div class="bg-[#3D4B58]"></div>
+<div class="bg-[#3D4B58]"></div>
+<div class="bg-[#8A9BA8]"></div>
+</div>
+<div class="radio-indicator w-5 h-5 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="w-2 h-2 rounded-full bg-transparent"></span>
+</div>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-[13px] text-on-surface leading-tight mb-0.5">Tactical Light</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[10px] leading-tight mb-2">Sunlight Safe Contrast</p>
+</div>
+<div class="flex items-center justify-between pt-1 mt-auto">
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px] bg-surface-container-lowest px-1 rounded">#3D4B58</span>
+<span class="font-label-sm text-label-sm text-secondary-container text-[9px] uppercase">SOLAR</span>
+</div>
+</div>
+</div>
+<!-- Telemetry Micro-Stat Row -->
+<div class="bg-surface-container-lowest p-space-sm rounded-xl flex items-center justify-between mb-space-md shadow-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary-container">memory</span>
+<div>
+<span class="font-label-sm text-label-sm text-on-surface block leading-tight">GPU SHADER COMPILATION</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-[10px]">Zero-overhead offline cache ready</span>
+</div>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-high px-2 py-1 rounded-DEFAULT">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span class="font-label-sm text-label-sm text-primary-container">HOT RELOAD</span>
+</div>
+</div>
+<!-- Bottom Fixed Command Bar -->
+<div class="sticky bottom-2 z-40 bg-surface/90 backdrop-blur-md p-space-xs rounded-xl shadow-2xl flex items-center gap-space-xs">
+<!-- Secondary Button: Inspect Spotlight -->
+<button class="flex-1 h-12 flex items-center justify-center gap-1.5 rounded-DEFAULT bg-surface-container-high text-on-surface font-headline-md text-headline-md text-[13px] uppercase tracking-wide hover:bg-surface-container-highest active:scale-95 transition-all" id="spotlight-btn">
+<span class="material-symbols-outlined text-[18px]">center_focus_strong</span>
+<span>Inspect</span>
+</button>
+<!-- Primary Emerald Action Button -->
+<button class="flex-[1.5] h-12 flex items-center justify-center gap-2 rounded-DEFAULT bg-primary-container text-on-primary-container font-headline-md text-headline-md text-[13px] font-bold uppercase tracking-wider shadow-[0_0_16px_rgba(0,255,136,0.35)] hover:shadow-[0_0_24px_rgba(0,255,136,0.5)] active:scale-95 transition-all" id="apply-theme-btn">
+<span class="material-symbols-outlined text-[19px]">bolt</span>
+<span>Apply Canvas</span>
+</button>
+</div>
+<!-- Toast Notification Overlay (Micro-delight) -->
+<div class="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 bg-surface-container-highest text-primary-container rounded-DEFAULT font-label-sm text-label-sm shadow-xl flex items-center gap-2 opacity-0 pointer-events-none transition-all duration-300" id="status-toast">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span id="toast-text">Theme synchronized across GPU pipeline</span>
+</div>
+</div>
+<script>
+  (function () {
+    const cards = document.querySelectorAll('.theme-card');
+    const boardGrid = document.getElementById('chessboard-grid');
+    const nameDisplay = document.getElementById('active-theme-name');
+    const descDisplay = document.getElementById('active-theme-desc');
+    const specDisplay = document.getElementById('theme-spec-code');
+    const applyBtn = document.getElementById('apply-theme-btn');
+    const flipBtn = document.getElementById('flip-board-btn');
+    const toast = document.getElementById('status-toast');
+    const toastText = document.getElementById('toast-text');
+
+    let isFlipped = false;
+    let selectedTheme = 'obsidian';
+
+    // Apply color palette to preview squares
+    function applyBoardStyle(lightColor, darkColor) {
+      const lights = boardGrid.querySelectorAll('.sq-light');
+      const darks = boardGrid.querySelectorAll('.sq-dark');
+      lights.forEach(el => el.style.backgroundColor = lightColor);
+      darks.forEach(el => el.style.backgroundColor = darkColor);
+    }
+
+    // Default initialization
+    applyBoardStyle('#222b38', '#11161f');
+
+    cards.forEach(card => {
+      card.addEventListener('click', () => {
+        // Reset card selections
+        cards.forEach(c => {
+          c.classList.remove('bg-surface-container-high', 'shadow-md');
+          c.classList.add('bg-surface-container-low');
+          const radio = c.querySelector('.radio-indicator');
+          radio.className = 'radio-indicator w-5 h-5 rounded-full bg-surface-container-highest flex items-center justify-center';
+          radio.innerHTML = '<span class="w-2 h-2 rounded-full bg-transparent"></span>';
+        });
+
+        // Set active card
+        card.classList.remove('bg-surface-container-low');
+        card.classList.add('bg-surface-container-high', 'shadow-md');
+        const activeRadio = card.querySelector('.radio-indicator');
+        activeRadio.className = 'radio-indicator w-5 h-5 rounded-full bg-primary-container flex items-center justify-center shadow-[0_0_8px_rgba(0,255,136,0.6)]';
+        activeRadio.innerHTML = '<span class="material-symbols-outlined text-[14px] text-on-primary-container font-bold">check</span>';
+
+        // Update preview headers
+        const themeName = card.getAttribute('data-name');
+        const themeDesc = card.getAttribute('data-desc');
+        const themeLight = card.getAttribute('data-light');
+        const themeDark = card.getAttribute('data-dark');
+        const themeSpec = card.getAttribute('data-spec');
+
+        selectedTheme = card.getAttribute('data-id');
+        nameDisplay.textContent = themeName;
+        descDisplay.textContent = themeDesc;
+        specDisplay.textContent = themeSpec;
+
+        applyBoardStyle(themeLight, themeDark);
+      });
+    });
+
+    // Board Flip micro-interaction
+    flipBtn.addEventListener('click', () => {
+      isFlipped = !isFlipped;
+      boardGrid.style.transform = isFlipped ? 'rotate(180deg)' : 'rotate(0deg)';
+      boardGrid.querySelectorAll('.material-symbols-outlined').forEach(icon => {
+        icon.style.transform = isFlipped ? 'rotate(180deg)' : 'rotate(0deg)';
+      });
+    });
+
+    // Apply Button Feedback
+    applyBtn.addEventListener('click', () => {
+      toastText.textContent = `Applied ${nameDisplay.textContent} to Board Engine`;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100', '-translate-y-2');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', '-translate-y-2');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2200);
+    });
+  })();
+</script></main></body></html>

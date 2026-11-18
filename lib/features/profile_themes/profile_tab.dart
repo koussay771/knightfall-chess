@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/theme_constants.dart';
 import '../../core/providers/theme_provider.dart';
+import 'theme_screen.dart';
 
 /// Profile + Theme tab content — zero-scroll, compact, hosted in LobbyScreen tabs.
 class ProfileTab extends ConsumerStatefulWidget {
@@ -34,33 +36,37 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   ];
 
   static const _boardThemeKeys = [
-    'cyber_slate',
-    'tactical_dark',
-    'tournament_green',
-    'classic_wood',
-    'midnight_dark',
-    'neon_night',
+    'green',
+    'blue-marble',
+    'wood',
+    'grey',
+    'metal',
+    'leather',
   ];
   static const _boardThemeLabels = [
-    'Cyber Slate',
-    'Tactical Dark',
     'Tournament Green',
+    'Blue Marble',
     'Classic Wood',
     'Midnight Dark',
-    'Neon Night',
+    'Titanium Metal',
+    'Vintage Leather',
   ];
 
   static const _pieceThemeKeys = [
-    'tactical',
-    'classic',
-    'neon_phosphor',
-    'obsidian',
+    'cburnett',
+    'alpha',
+    'merida',
+    'staunty',
+    'pixel',
+    'rhosgfx',
   ];
   static const _pieceThemeLabels = [
-    'Tactical Grandmaster',
-    'Classic Woodcraft',
-    'Cyber Neon',
-    'Obsidian Stealth',
+    'CBurnett',
+    'Alpha',
+    'Merida',
+    'Staunty',
+    'Pixel 8-Bit',
+    'Rhos GFX',
   ];
 
   @override
@@ -353,7 +359,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     ),
                     child: Row(
                       children: [
-                        // Mini board preview (4 squares)
+                        // Mini board preview with real asset texture
                         ClipRRect(
                           borderRadius: const BorderRadius.only(
                             topLeft:
@@ -364,16 +370,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                           child: SizedBox(
                             width: 48,
                             height: double.infinity,
-                            child: GridView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2),
-                              itemCount: 4,
-                              itemBuilder: (_, j) => Container(
-                                color: (j % 2 == (j ~/ 2) % 2)
-                                    ? colors[0]
-                                    : colors[1],
+                            child: Image.asset(
+                              AppThemes.getBoardTheme(key).thumbnailPath ??
+                                  AppThemes.getBoardTheme(key).assetPath,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => GridView.builder(
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2),
+                                itemCount: 4,
+                                itemBuilder: (_, j) => Container(
+                                  color: (j % 2 == (j ~/ 2) % 2)
+                                      ? colors[0]
+                                      : colors[1],
+                                ),
                               ),
                             ),
                           ),
@@ -459,17 +470,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                             ),
                           ),
                           child: Center(
-                            child: Text(
-                              '♚ ♞',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: key == 'neon_phosphor'
-                                    ? const Color(0xFF00FF88)
-                                    : key == 'classic'
-                                        ? const Color(0xFFFAF8F5)
-                                        : key == 'obsidian'
-                                            ? const Color(0xFF38BDF8)
-                                            : Colors.white,
+                            child: SvgPicture.asset(
+                              AppThemes.getPieceSet(key).getPieceAsset('N'),
+                              width: 22,
+                              height: 22,
+                              fit: BoxFit.contain,
+                              placeholderBuilder: (_) => const Text(
+                                '♞',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF00FF88),
+                                ),
                               ),
                             ),
                           ),
@@ -500,6 +511,33 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   ),
                 );
               },
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 44,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ThemeScreen()),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF00FF88),
+                  side: const BorderSide(color: Color(0xFF00FF88)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppDimensions.radiusMedium),
+                  ),
+                ),
+                icon: const Icon(Icons.grid_view, size: 18),
+                label: const Text(
+                  'OPEN VISUAL RIG STUDIO',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
           ],

@@ -19,6 +19,7 @@ dependencies:
   shared_preferences: ^2.2.3
   sqflite: ^2.3.3
   path: ^1.9.0
+  flutter_svg: ^2.4.0
 
 dev_dependencies:
   flutter_test:
@@ -31,3 +32,48 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sounds/
+    - assets/board/
+    - assets/piece/alpha/
+    - assets/piece/anarcandy/
+    - assets/piece/caliente/
+    - assets/piece/california/
+    - assets/piece/cardinal/
+    - assets/piece/cburnett/
+    - assets/piece/celtic/
+    - assets/piece/chess7/
+    - assets/piece/chessboart/
+    - assets/piece/chessnut/
+    - assets/piece/companion/
+    - assets/piece/cooke/
+    - assets/piece/disguised/
+    - assets/piece/dubrovny/
+    - assets/piece/fantasy/
+    - assets/piece/firi/
+    - assets/piece/fresca/
+    - assets/piece/gioco/
+    - assets/piece/governor/
+    - assets/piece/horsey/
+    - assets/piece/icpieces/
+    - assets/piece/kiwen-suwi/
+    - assets/piece/kosal/
+    - assets/piece/leipzig/
+    - assets/piece/letter/
+    - assets/piece/maestro/
+    - assets/piece/merida/
+    - assets/piece/minimal-warmth/
+    - assets/piece/monarchy/
+    - assets/piece/mono/
+    - assets/piece/mpchess/
+    - assets/piece/papercut/
+    - assets/piece/pirouetti/
+    - assets/piece/pixel/
+    - assets/piece/reillycraig/
+    - assets/piece/rhosgfx/
+    - assets/piece/riohacha/
+    - assets/piece/shahi-ivory-brown/
+    - assets/piece/shapes/
+    - assets/piece/spatial/
+    - assets/piece/staunty/
+    - assets/piece/tatiana/
+    - assets/piece/totoy/
+    - assets/piece/xkcd/

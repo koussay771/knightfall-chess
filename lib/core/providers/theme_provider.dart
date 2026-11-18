@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/theme_constants.dart';
 
-/// Notifier providing the currently active board theme ID ('cyber_slate', 'tactical_dark', 'tournament_green', etc.).
+/// Notifier providing the currently active board theme ID (e.g. 'green', 'blue-marble', 'wood', etc.).
 class BoardThemeNotifier extends StateNotifier<String> {
   BoardThemeNotifier() : super('tournament_green') {
     _loadTheme();
@@ -29,9 +29,9 @@ final boardThemeProvider = StateNotifierProvider<BoardThemeNotifier, String>((re
   return BoardThemeNotifier();
 });
 
-/// Notifier providing the currently active piece style theme ID ('tactical', 'classic', 'neon_phosphor', 'obsidian').
+/// Notifier providing the currently active piece set ID (e.g. 'cburnett', 'alpha', 'staunty', etc.).
 class PieceThemeNotifier extends StateNotifier<String> {
-  PieceThemeNotifier() : super('tactical') {
+  PieceThemeNotifier() : super('cburnett') {
     _loadTheme();
   }
 

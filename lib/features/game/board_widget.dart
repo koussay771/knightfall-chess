@@ -1,10 +1,13 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/constants/theme_constants.dart';
 
-/// Responsive 8x8 Precision Chess Board Widget matching Knightfall Dark HUD:
-/// - Centered 8x8 custom dark slate/charcoal board
+/// Responsive 8x8 Precision Chess Board Widget matching Knightfall Dark HUD & Real Asset Rig:
+/// - Real asset board textures from assets/board/ (or procedural fallback)
+/// - Real vector piece assets from assets/piece/ (SVG / WebP) with graceful fallback
 /// - Clean standard square highlights ('from' and 'to' in soft gold/amber, check in soft red)
-/// - NO green trajectory arc/arrow (removed for a clean, distraction-free board)
+/// - NO green trajectory arc/arrow (clean, distraction-free board)
 /// - King in check pulsing in soft red with subtle "CHK" micro-badge
 /// - Subtle legal move glowing target dots and capture rings when active
 /// - Smooth horizontal board shake animation on illegal moves
@@ -21,6 +24,7 @@ class BoardWidget extends StatefulWidget {
   final bool flipped;
   final Color lightSquareColor;
   final Color darkSquareColor;
+  final String? boardTheme;
   final String pieceTheme;
   final int shakeTrigger;
   final void Function(String square) onSquareTapped;
@@ -39,7 +43,8 @@ class BoardWidget extends StatefulWidget {
     this.flipped = false,
     this.lightSquareColor = const Color(0xFFCFD8DC),
     this.darkSquareColor = const Color(0xFF16202C),
-    this.pieceTheme = 'tactical',
+    this.boardTheme,
+    this.pieceTheme = 'cburnett',
     this.shakeTrigger = 0,
     required this.onSquareTapped,
     this.onPieceDropped,
@@ -80,6 +85,9 @@ class _BoardWidgetState extends State<BoardWidget>
   @override
   Widget build(BuildContext context) {
     final boardMatrix = _parseFenToMatrix(widget.fen);
+    final boardInfo = widget.boardTheme != null
+        ? AppThemes.getBoardTheme(widget.boardTheme!)
+        : null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -114,53 +122,70 @@ class _BoardWidgetState extends State<BoardWidget>
                 ],
               ),
               clipBehavior: Clip.antiAlias,
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 8,
-                ),
-                itemCount: 64,
-                itemBuilder: (context, index) {
-                  final rankIndex = index ~/ 8; // 0..7
-                  final fileIndex = index % 8; // 0..7
+              child: Stack(
+                children: [
+                  // Real Board Asset Texture if active
+                  if (boardInfo != null)
+                    Positioned.fill(
+                      child: Image.asset(
+                        boardInfo.assetPath,
+                        fit: BoxFit.fill,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
 
-                  final row = widget.flipped ? 7 - rankIndex : rankIndex;
-                  final col = widget.flipped ? 7 - fileIndex : fileIndex;
+                  // 8x8 Grid Canvas
+                  GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 8,
+                    ),
+                    itemCount: 64,
+                    itemBuilder: (context, index) {
+                      final rankIndex = index ~/ 8; // 0..7
+                      final fileIndex = index % 8; // 0..7
 
-                  final fileChar =
-                      String.fromCharCode('a'.codeUnitAt(0) + col);
-                  final rankChar = (8 - row).toString();
-                  final squareName = '$fileChar$rankChar';
+                      final row = widget.flipped ? 7 - rankIndex : rankIndex;
+                      final col = widget.flipped ? 7 - fileIndex : fileIndex;
 
-                  final isLight = (row + col) % 2 == 0;
-                  final piece = boardMatrix[row][col];
-                  final isLegalTarget =
-                      widget.legalTargets.contains(squareName);
+                      final fileChar =
+                          String.fromCharCode('a'.codeUnitAt(0) + col);
+                      final rankChar = (8 - row).toString();
+                      final squareName = '$fileChar$rankChar';
 
-                  return _SquareTile(
-                    squareName: squareName,
-                    isLight: isLight,
-                    piece: piece,
-                    lightColor: widget.lightSquareColor,
-                    darkColor: widget.darkSquareColor,
-                    isSelected: widget.selectedSquare == squareName,
-                    isLastMoveFrom: widget.lastMoveFrom == squareName,
-                    isLastMoveTo: widget.lastMoveTo == squareName,
-                    isPremove: widget.premoveFrom == squareName ||
-                        widget.premoveTo == squareName,
-                    isCheck: widget.checkSquare == squareName,
-                    isLegalTarget: isLegalTarget,
-                    pieceTheme: widget.pieceTheme,
-                    showFileLabel:
-                        widget.flipped ? rankIndex == 0 : rankIndex == 7,
-                    showRankLabel:
-                        widget.flipped ? fileIndex == 7 : fileIndex == 0,
-                    fileLabel: fileChar,
-                    rankLabel: rankChar,
-                    onTap: () => widget.onSquareTapped(squareName),
-                    onPieceDropped: widget.onPieceDropped,
-                  );
-                },
+                      final isLight = (row + col) % 2 == 0;
+                      final piece = boardMatrix[row][col];
+                      final isLegalTarget =
+                          widget.legalTargets.contains(squareName);
+
+                      return _SquareTile(
+                        squareName: squareName,
+                        isLight: isLight,
+                        hasBoardTexture: boardInfo != null,
+                        piece: piece,
+                        lightColor: widget.lightSquareColor,
+                        darkColor: widget.darkSquareColor,
+                        isSelected: widget.selectedSquare == squareName,
+                        isLastMoveFrom: widget.lastMoveFrom == squareName,
+                        isLastMoveTo: widget.lastMoveTo == squareName,
+                        isPremove: widget.premoveFrom == squareName ||
+                            widget.premoveTo == squareName,
+                        isCheck: widget.checkSquare == squareName,
+                        isLegalTarget: isLegalTarget,
+                        pieceTheme: widget.pieceTheme,
+                        showFileLabel:
+                            widget.flipped ? rankIndex == 0 : rankIndex == 7,
+                        showRankLabel:
+                            widget.flipped ? fileIndex == 7 : fileIndex == 0,
+                        fileLabel: fileChar,
+                        rankLabel: rankChar,
+                        onTap: () => widget.onSquareTapped(squareName),
+                        onPieceDropped: widget.onPieceDropped,
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -197,6 +222,7 @@ class _BoardWidgetState extends State<BoardWidget>
 class _SquareTile extends StatelessWidget {
   final String squareName;
   final bool isLight;
+  final bool hasBoardTexture;
   final String? piece;
   final Color lightColor;
   final Color darkColor;
@@ -217,6 +243,7 @@ class _SquareTile extends StatelessWidget {
   const _SquareTile({
     required this.squareName,
     required this.isLight,
+    this.hasBoardTexture = false,
     required this.piece,
     required this.lightColor,
     required this.darkColor,
@@ -226,7 +253,7 @@ class _SquareTile extends StatelessWidget {
     required this.isPremove,
     required this.isCheck,
     required this.isLegalTarget,
-    this.pieceTheme = 'tactical',
+    this.pieceTheme = 'cburnett',
     required this.showFileLabel,
     required this.showRankLabel,
     required this.fileLabel,
@@ -237,7 +264,10 @@ class _SquareTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = isLight ? lightColor : darkColor;
+    // If real board texture is underneath, keep the square transparent so texture is visible
+    final baseColor = hasBoardTexture
+        ? Colors.transparent
+        : (isLight ? lightColor : darkColor);
 
     return DragTarget<String>(
       onWillAcceptWithDetails: (details) => details.data != squareName,
@@ -249,51 +279,22 @@ class _SquareTile extends StatelessWidget {
         }
       },
       builder: (context, candidateData, rejectedData) {
+        final isHovered = candidateData.isNotEmpty;
+
         return GestureDetector(
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
+            key: ValueKey('square_$squareName'),
             color: baseColor,
             child: Stack(
               children: [
-                // Highlight: Last Move From (soft gold overlay with small amber dot)
-                if (isLastMoveFrom)
-                  Positioned.fill(
-                    child: Container(
-                      color: const Color(0x38FFD700),
-                      child: Center(
-                        child: Container(
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xAAFFD700),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // Highlight: Last Move To (soft gold arrival overlay)
-                if (isLastMoveTo)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0x40FFD700),
-                        border: Border.all(
-                          color: const Color(0x66FFD700),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // Selected square: Soft glowing emerald overlay
+                // 1. Subtle Selection Highlight (Emerald glow)
                 if (isSelected)
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0x3D00FF88),
+                        color: const Color(0xFF00FF88).withValues(alpha: 0.38),
                         border: Border.all(
                           color: const Color(0xFF00FF88),
                           width: 1.5,
@@ -302,136 +303,128 @@ class _SquareTile extends StatelessWidget {
                     ),
                   ),
 
-                // Premove: Cyber-orange overlay
+                // 2. Drag hover target highlight
+                if (isHovered)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00FF88).withValues(alpha: 0.28),
+                        border: Border.all(
+                          color: const Color(0xFF00FF88),
+                          width: 2.0,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // 3. Last Move Highlight ('from' & 'to' in Soft Gold/Amber)
+                if (!isSelected && (isLastMoveFrom || isLastMoveTo))
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD700).withValues(alpha: 0.32),
+                        border: Border.all(
+                          color: const Color(0xFFFFD700).withValues(alpha: 0.65),
+                          width: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // 4. Premove Highlight (Cyan/Sky)
                 if (isPremove)
                   Positioned.fill(
                     child: Container(
-                      color: const Color(0x38FF8C00),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+                        border: Border.all(
+                          color: const Color(0xFF38BDF8),
+                          width: 1.5,
+                        ),
+                      ),
                     ),
                   ),
 
-                // King in Check: Soft pulsing red halo with CHK corner badge
-                if (isCheck) ...[
+                // 5. King in Check Warning State (Soft pulsing radial crimson glow)
+                if (isCheck)
                   const Positioned.fill(
                     child: _CheckHighlightWidget(),
                   ),
-                  Positioned(
-                    top: 2,
-                    right: 2,
-                    child: Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF690005),
-                        borderRadius: BorderRadius.circular(3),
-                        border: Border.all(
-                          color: const Color(0xFFFFB4AB),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: const Text(
-                        'CHK',
-                        style: TextStyle(
-                          color: Color(0xFFFFB4AB),
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
 
-                // Rank coordinate label (top-left)
+                // 6. Coordinates (Rank on left, File on bottom)
                 if (showRankLabel)
                   Positioned(
                     top: 2,
-                    left: 3,
+                    left: 2.5,
                     child: Text(
                       rankLabel,
                       style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
                         color: isLight
-                            ? const Color(0xFF1A2028).withValues(alpha: 0.6)
-                            : const Color(0xFFB9CBB9).withValues(alpha: 0.5),
+                            ? const Color(0xFF16202C).withValues(alpha: 0.65)
+                            : const Color(0xFFCFD8DC).withValues(alpha: 0.65),
                       ),
                     ),
                   ),
-
-                // File coordinate label (bottom-right)
                 if (showFileLabel)
                   Positioned(
-                    bottom: 1,
-                    right: 3,
+                    bottom: 1.5,
+                    right: 2.5,
                     child: Text(
                       fileLabel,
                       style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
                         color: isLight
-                            ? const Color(0xFF1A2028).withValues(alpha: 0.6)
-                            : const Color(0xFFB9CBB9).withValues(alpha: 0.5),
+                            ? const Color(0xFF16202C).withValues(alpha: 0.65)
+                            : const Color(0xFFCFD8DC).withValues(alpha: 0.65),
                       ),
                     ),
                   ),
 
-                // Legal Move Target: Subtle glowing emerald dot on empty square
-                if (isLegalTarget && piece == null)
-                  Center(
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0x3300FF88),
-                      ),
-                      child: Center(
-                        child: Container(
-                          key: const Key('legal_move_dot'),
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFF00FF88),
-                          ),
-                        ),
-                      ),
+                // 7. Legal Move Target Indicators (clean & subtle)
+                if (isLegalTarget)
+                  Positioned.fill(
+                    child: Center(
+                      child: piece != null
+                          ? Container(
+                              key: const ValueKey('legal_capture_ring'),
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF00FF88).withValues(alpha: 0.85),
+                                  width: 2.5,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              key: const ValueKey('legal_move_dot'),
+                              width: 11,
+                              height: 11,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFF00FF88).withValues(alpha: 0.75),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF00FF88).withValues(alpha: 0.5),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
                     ),
                   ),
 
-                // Legal Move Capture: Hollow glowing emerald ring on occupied square
-                if (isLegalTarget && piece != null)
-                  Center(
-                    child: Container(
-                      key: const Key('legal_capture_ring'),
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xCC00FF88),
-                          width: 3.5,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x4400FF88),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // Chess Piece Widget with smooth elevation drag
+                // 8. Chess Piece with Drag-and-Drop Piece Flying
                 if (piece != null)
                   Center(
                     child: Draggable<String>(
                       data: squareName,
-                      dragAnchorStrategy: pointerDragAnchorStrategy,
                       feedback: Material(
-                        type: MaterialType.transparency,
+                        color: Colors.transparent,
                         child: Transform.scale(
                           scale: 1.18,
                           child: Container(
@@ -488,29 +481,35 @@ class _CheckHighlightWidget extends StatefulWidget {
 
 class _CheckHighlightWidgetState extends State<_CheckHighlightWidget>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 650),
+      duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
+
+    _pulseAnimation = CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _pulseAnimation,
       builder: (context, child) {
-        final opacity = 0.28 + (_controller.value * 0.4);
+        final opacity = 0.45 + (_pulseAnimation.value * 0.4);
         return Container(
           decoration: BoxDecoration(
             gradient: RadialGradient(
@@ -528,15 +527,18 @@ class _CheckHighlightWidgetState extends State<_CheckHighlightWidget>
   }
 }
 
+/// Real Piece Asset Widget (Loads SVG/WebP from assets/piece/ with Unicode fallback)
 class _PieceWidget extends StatelessWidget {
   final String piece;
   final bool isSquareLight;
   final String pieceTheme;
 
+  static const double _pieceSize = 36.0;
+
   const _PieceWidget({
     required this.piece,
     required this.isSquareLight,
-    this.pieceTheme = 'tactical',
+    this.pieceTheme = 'cburnett',
   });
 
   static const Map<String, String> _pieceSymbols = {
@@ -556,81 +558,68 @@ class _PieceWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final symbol = _pieceSymbols[piece] ?? '';
+    final pieceSet = AppThemes.getPieceSet(pieceTheme);
+    final assetPath = pieceSet.getPieceAsset(piece);
     final isWhite = piece == piece.toUpperCase();
+    final symbol = _pieceSymbols[piece] ?? '';
 
-    final Color pieceColor;
-    final List<Shadow> shadows;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Semantic/accessible text representation for screen readers & testing
+        Opacity(
+          opacity: 0.0,
+          child: Text(
+            symbol,
+            style: const TextStyle(fontSize: 1),
+          ),
+        ),
+        if (pieceSet.isWebp)
+          Image.asset(
+            assetPath,
+            width: _pieceSize,
+            height: _pieceSize,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => _buildFallbackText(isWhite),
+          )
+        else
+          SvgPicture.asset(
+            assetPath,
+            width: _pieceSize,
+            height: _pieceSize,
+            fit: BoxFit.contain,
+            placeholderBuilder: (_) => _buildFallbackText(isWhite),
+          ),
+      ],
+    );
+  }
 
-    if (pieceTheme == 'neon_phosphor') {
-      if (isWhite) {
-        pieceColor = const Color(0xFF00FF88);
-        shadows = const [
-          Shadow(color: Color(0xFF00FF88), blurRadius: 10),
-          Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 2)),
-        ];
-      } else {
-        pieceColor = const Color(0xFFFFD700);
-        shadows = const [
-          Shadow(color: Color(0xFFFFD700), blurRadius: 10),
-          Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 2)),
-        ];
-      }
-    } else if (pieceTheme == 'classic') {
-      if (isWhite) {
-        pieceColor = const Color(0xFFFAF8F5);
-        shadows = const [
-          Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1.5)),
-        ];
-      } else {
-        pieceColor = const Color(0xFF1E232A);
-        shadows = const [
-          Shadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 1.5)),
-        ];
-      }
-    } else if (pieceTheme == 'obsidian') {
-      if (isWhite) {
-        pieceColor = const Color(0xFFE2E8F0);
-        shadows = const [
-          Shadow(color: Color(0x9938BDF8), blurRadius: 8, offset: Offset(0, 1)),
-        ];
-      } else {
-        pieceColor = isSquareLight
-            ? const Color(0xFF090F16)
-            : const Color(0xFF1E293B);
-        shadows = const [
-          Shadow(color: Color(0x99EF4444), blurRadius: 8, offset: Offset(0, 1)),
-        ];
-      }
-    } else {
-      // 'tactical' - Default Tactical Grandmaster from mockup
-      if (isWhite) {
-        pieceColor = Colors.white;
-        shadows = const [
-          Shadow(
-            color: Colors.black87,
-            blurRadius: 5,
-            offset: Offset(0, 2),
-          ),
-        ];
-      } else {
-        pieceColor = isSquareLight
-            ? const Color(0xFF0E141C)
-            : const Color(0xFFDDE3EE);
-        shadows = [
-          Shadow(
-            color: Colors.black.withValues(alpha: isSquareLight ? 0.6 : 0.8),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ];
-      }
-    }
+  Widget _buildFallbackText(bool isWhite) {
+    final symbol = _pieceSymbols[piece] ?? '';
+    final Color pieceColor = isWhite
+        ? Colors.white
+        : (isSquareLight ? const Color(0xFF0E141C) : const Color(0xFFDDE3EE));
+
+    final shadows = isWhite
+        ? const [
+            Shadow(
+              color: Colors.black87,
+              blurRadius: 5,
+              offset: Offset(0, 2),
+            ),
+          ]
+        : [
+            Shadow(
+              color: Colors.black.withValues(alpha: isSquareLight ? 0.6 : 0.8),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ];
 
     return Text(
       symbol,
       style: TextStyle(
-        fontSize: 34,
+        fontSize: _pieceSize * 0.85,
         height: 1.0,
         color: pieceColor,
         shadows: shadows,
