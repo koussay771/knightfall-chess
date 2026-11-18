@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 
 /// Responsive 8x8 Precision Chess Board Widget matching Knightfall Dark HUD:
 /// - Centered 8x8 custom dark slate/charcoal board
-/// - Smooth arc/curve trajectory arrow with glowing green path and elevation rings
-/// - Last move highlights in gold/yellow (from & to)
-/// - King in check pulsing in intense red with "CHK" corner badge
+/// - Clean standard square highlights ('from' and 'to' in soft gold/amber, check in soft red)
+/// - NO green trajectory arc/arrow (removed for a clean, distraction-free board)
+/// - King in check pulsing in soft red with subtle "CHK" micro-badge
 /// - Subtle legal move glowing target dots and capture rings when active
 /// - Smooth horizontal board shake animation on illegal moves
 /// - Smooth piece drag-and-drop piece flying
@@ -21,6 +21,7 @@ class BoardWidget extends StatefulWidget {
   final bool flipped;
   final Color lightSquareColor;
   final Color darkSquareColor;
+  final String pieceTheme;
   final int shakeTrigger;
   final void Function(String square) onSquareTapped;
   final void Function(String from, String to)? onPieceDropped;
@@ -36,8 +37,9 @@ class BoardWidget extends StatefulWidget {
     this.premoveTo,
     this.checkSquare,
     this.flipped = false,
-    this.lightSquareColor = const Color(0xFF242A33),
-    this.darkSquareColor = const Color(0xFF161C24),
+    this.lightSquareColor = const Color(0xFFCFD8DC),
+    this.darkSquareColor = const Color(0xFF16202C),
+    this.pieceTheme = 'tactical',
     this.shakeTrigger = 0,
     required this.onSquareTapped,
     this.onPieceDropped,
@@ -84,18 +86,6 @@ class _BoardWidgetState extends State<BoardWidget>
         final size = constraints.maxWidth < constraints.maxHeight
             ? constraints.maxWidth
             : constraints.maxHeight;
-        final squareSize = size / 8;
-
-        final fromCenter = _getSquareCenter(
-          widget.lastMoveFrom,
-          widget.flipped,
-          squareSize,
-        );
-        final toCenter = _getSquareCenter(
-          widget.lastMoveTo,
-          widget.flipped,
-          squareSize,
-        );
 
         return Center(
           child: AnimatedBuilder(
@@ -112,110 +102,70 @@ class _BoardWidgetState extends State<BoardWidget>
               width: size,
               height: size,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 color: const Color(0xFF090F16),
-                border: Border.all(color: const Color(0xFF2F353E), width: 1.5),
+                border: Border.all(color: const Color(0xFF242A33), width: 1.0),
                 boxShadow: const [
                   BoxShadow(
-                    color: Colors.black87,
-                    blurRadius: 16,
-                    offset: Offset(0, 6),
+                    color: Colors.black54,
+                    blurRadius: 14,
+                    offset: Offset(0, 4),
                   ),
                 ],
               ),
               clipBehavior: Clip.antiAlias,
-              child: Stack(
-                children: [
-                  // 8x8 Grid of squares
-                  GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 8,
-                    ),
-                    itemCount: 64,
-                    itemBuilder: (context, index) {
-                      final rankIndex = index ~/ 8; // 0..7
-                      final fileIndex = index % 8; // 0..7
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 8,
+                ),
+                itemCount: 64,
+                itemBuilder: (context, index) {
+                  final rankIndex = index ~/ 8; // 0..7
+                  final fileIndex = index % 8; // 0..7
 
-                      final row = widget.flipped ? 7 - rankIndex : rankIndex;
-                      final col = widget.flipped ? 7 - fileIndex : fileIndex;
+                  final row = widget.flipped ? 7 - rankIndex : rankIndex;
+                  final col = widget.flipped ? 7 - fileIndex : fileIndex;
 
-                      final fileChar =
-                          String.fromCharCode('a'.codeUnitAt(0) + col);
-                      final rankChar = (8 - row).toString();
-                      final squareName = '$fileChar$rankChar';
+                  final fileChar =
+                      String.fromCharCode('a'.codeUnitAt(0) + col);
+                  final rankChar = (8 - row).toString();
+                  final squareName = '$fileChar$rankChar';
 
-                      final isLight = (row + col) % 2 == 0;
-                      final piece = boardMatrix[row][col];
-                      final isLegalTarget =
-                          widget.legalTargets.contains(squareName);
+                  final isLight = (row + col) % 2 == 0;
+                  final piece = boardMatrix[row][col];
+                  final isLegalTarget =
+                      widget.legalTargets.contains(squareName);
 
-                      return _SquareTile(
-                        squareName: squareName,
-                        isLight: isLight,
-                        piece: piece,
-                        lightColor: widget.lightSquareColor,
-                        darkColor: widget.darkSquareColor,
-                        isSelected: widget.selectedSquare == squareName,
-                        isLastMoveFrom: widget.lastMoveFrom == squareName,
-                        isLastMoveTo: widget.lastMoveTo == squareName,
-                        isPremove: widget.premoveFrom == squareName ||
-                            widget.premoveTo == squareName,
-                        isCheck: widget.checkSquare == squareName,
-                        isLegalTarget: isLegalTarget,
-                        showFileLabel:
-                            widget.flipped ? rankIndex == 0 : rankIndex == 7,
-                        showRankLabel:
-                            widget.flipped ? fileIndex == 7 : fileIndex == 0,
-                        fileLabel: fileChar,
-                        rankLabel: rankChar,
-                        onTap: () => widget.onSquareTapped(squareName),
-                        onPieceDropped: widget.onPieceDropped,
-                      );
-                    },
-                  ),
-
-                  // Trajectory Curve Overlay (non-blocking)
-                  if (fromCenter != null && toCenter != null)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          painter: _TrajectoryPainter(
-                            from: fromCenter,
-                            to: toCenter,
-                            squareSize: squareSize,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+                  return _SquareTile(
+                    squareName: squareName,
+                    isLight: isLight,
+                    piece: piece,
+                    lightColor: widget.lightSquareColor,
+                    darkColor: widget.darkSquareColor,
+                    isSelected: widget.selectedSquare == squareName,
+                    isLastMoveFrom: widget.lastMoveFrom == squareName,
+                    isLastMoveTo: widget.lastMoveTo == squareName,
+                    isPremove: widget.premoveFrom == squareName ||
+                        widget.premoveTo == squareName,
+                    isCheck: widget.checkSquare == squareName,
+                    isLegalTarget: isLegalTarget,
+                    pieceTheme: widget.pieceTheme,
+                    showFileLabel:
+                        widget.flipped ? rankIndex == 0 : rankIndex == 7,
+                    showRankLabel:
+                        widget.flipped ? fileIndex == 7 : fileIndex == 0,
+                    fileLabel: fileChar,
+                    rankLabel: rankChar,
+                    onTap: () => widget.onSquareTapped(squareName),
+                    onPieceDropped: widget.onPieceDropped,
+                  );
+                },
               ),
             ),
           ),
         );
       },
-    );
-  }
-
-  static Offset? _getSquareCenter(
-      String? sq, bool flipped, double squareSize) {
-    if (sq == null || sq.length < 2) return null;
-    final file = sq.codeUnitAt(0) - 'a'.codeUnitAt(0);
-    final rank = int.tryParse(sq[1]);
-    if (rank == null || file < 0 || file > 7 || rank < 1 || rank > 8) {
-      return null;
-    }
-
-    final row = 8 - rank;
-    final col = file;
-
-    final actualCol = flipped ? 7 - col : col;
-    final actualRow = flipped ? 7 - row : row;
-
-    return Offset(
-      (actualCol + 0.5) * squareSize,
-      (actualRow + 0.5) * squareSize,
     );
   }
 
@@ -256,6 +206,7 @@ class _SquareTile extends StatelessWidget {
   final bool isPremove;
   final bool isCheck;
   final bool isLegalTarget;
+  final String pieceTheme;
   final bool showFileLabel;
   final bool showRankLabel;
   final String fileLabel;
@@ -275,6 +226,7 @@ class _SquareTile extends StatelessWidget {
     required this.isPremove,
     required this.isCheck,
     required this.isLegalTarget,
+    this.pieceTheme = 'tactical',
     required this.showFileLabel,
     required this.showRankLabel,
     required this.fileLabel,
@@ -304,7 +256,7 @@ class _SquareTile extends StatelessWidget {
             color: baseColor,
             child: Stack(
               children: [
-                // Highlight: Last Move From (warm amber ghost trail)
+                // Highlight: Last Move From (soft gold overlay with small amber dot)
                 if (isLastMoveFrom)
                   Positioned.fill(
                     child: Container(
@@ -322,7 +274,7 @@ class _SquareTile extends StatelessWidget {
                     ),
                   ),
 
-                // Highlight: Last Move To (subtle amber arrival glow)
+                // Highlight: Last Move To (soft gold arrival overlay)
                 if (isLastMoveTo)
                   Positioned.fill(
                     child: Container(
@@ -336,12 +288,12 @@ class _SquareTile extends StatelessWidget {
                     ),
                   ),
 
-                // Selected square: Vibrant neon green overlay & inner glow
+                // Selected square: Soft glowing emerald overlay
                 if (isSelected)
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0x4000FF88),
+                        color: const Color(0x3D00FF88),
                         border: Border.all(
                           color: const Color(0xFF00FF88),
                           width: 1.5,
@@ -350,15 +302,15 @@ class _SquareTile extends StatelessWidget {
                     ),
                   ),
 
-                // Premove: Cyber-orange corners
+                // Premove: Cyber-orange overlay
                 if (isPremove)
                   Positioned.fill(
                     child: Container(
-                      color: const Color(0x33FF8C00),
+                      color: const Color(0x38FF8C00),
                     ),
                   ),
 
-                // King in Check: Intense pulsing red halo with CHK corner badge
+                // King in Check: Soft pulsing red halo with CHK corner badge
                 if (isCheck) ...[
                   const Positioned.fill(
                     child: _CheckHighlightWidget(),
@@ -397,10 +349,12 @@ class _SquareTile extends StatelessWidget {
                     left: 3,
                     child: Text(
                       rankLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF849585),
+                        color: isLight
+                            ? const Color(0xFF1A2028).withValues(alpha: 0.6)
+                            : const Color(0xFFB9CBB9).withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -412,10 +366,12 @@ class _SquareTile extends StatelessWidget {
                     right: 3,
                     child: Text(
                       fileLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF849585),
+                        color: isLight
+                            ? const Color(0xFF1A2028).withValues(alpha: 0.6)
+                            : const Color(0xFFB9CBB9).withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -489,16 +445,28 @@ class _SquareTile extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            child: _PieceWidget(piece: piece!),
+                            child: _PieceWidget(
+                              piece: piece!,
+                              isSquareLight: isLight,
+                              pieceTheme: pieceTheme,
+                            ),
                           ),
                         ),
                       ),
                       childWhenDragging: Opacity(
                         opacity: 0.25,
-                        child: _PieceWidget(piece: piece!),
+                        child: _PieceWidget(
+                          piece: piece!,
+                          isSquareLight: isLight,
+                          pieceTheme: pieceTheme,
+                        ),
                       ),
                       onDragStarted: onTap,
-                      child: _PieceWidget(piece: piece!),
+                      child: _PieceWidget(
+                        piece: piece!,
+                        isSquareLight: isLight,
+                        pieceTheme: pieceTheme,
+                      ),
                     ),
                   ),
               ],
@@ -542,12 +510,12 @@ class _CheckHighlightWidgetState extends State<_CheckHighlightWidget>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        final opacity = 0.35 + (_controller.value * 0.45);
+        final opacity = 0.28 + (_controller.value * 0.4);
         return Container(
           decoration: BoxDecoration(
             gradient: RadialGradient(
               colors: [
-                const Color(0xFFFFB4AB).withValues(alpha: 0.2),
+                const Color(0xFFFFB4AB).withValues(alpha: 0.25),
                 const Color(0xFF93000A).withValues(alpha: opacity),
                 const Color(0xFF690005).withValues(alpha: opacity * 0.95),
               ],
@@ -560,103 +528,16 @@ class _CheckHighlightWidgetState extends State<_CheckHighlightWidget>
   }
 }
 
-/// Trajectory overlay painter for smooth arc arrow and elevation rings
-class _TrajectoryPainter extends CustomPainter {
-  final Offset from;
-  final Offset to;
-  final double squareSize;
-
-  const _TrajectoryPainter({
-    required this.from,
-    required this.to,
-    required this.squareSize,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p1 = from;
-    final p2 = to;
-
-    final dx = p2.dx - p1.dx;
-    final dy = p2.dy - p1.dy;
-    final dist = sqrt(dx * dx + dy * dy);
-    if (dist < 1.0) return;
-
-    // Normal vector perpendicular to trajectory
-    final nx = -dy / dist;
-    final ny = dx / dist;
-
-    // Control point with gentle curvature
-    final curveOffset = min(squareSize * 0.45, dist * 0.22);
-    final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-    final ctrl = Offset(mid.dx + nx * curveOffset, mid.dy + ny * curveOffset);
-
-    // 1. Glowing Neon Shadow Path
-    final glowPaint = Paint()
-      ..color = const Color(0x3300FF88)
-      ..strokeWidth = 6.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path()
-      ..moveTo(p1.dx, p1.dy)
-      ..quadraticBezierTo(ctrl.dx, ctrl.dy, p2.dx, p2.dy);
-
-    canvas.drawPath(path, glowPaint);
-
-    // 2. Main Trajectory Stroke
-    final mainPaint = Paint()
-      ..color = const Color(0xFF00FF88)
-      ..strokeWidth = 2.4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(path, mainPaint);
-
-    // 3. Origin Point: Gold/Amber dot
-    final originPaint = Paint()..color = const Color(0xCCFFD700);
-    canvas.drawCircle(p1, 3.5, originPaint);
-
-    // 4. Destination Elevation Haptic Rings
-    final ringPaint = Paint()
-      ..color = const Color(0xE600FF88)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8;
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: p2,
-        width: squareSize * 0.75,
-        height: squareSize * 0.42,
-      ),
-      ringPaint,
-    );
-
-    final outerRingPaint = Paint()
-      ..color = const Color(0x5500FF88)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: p2,
-        width: squareSize * 0.95,
-        height: squareSize * 0.54,
-      ),
-      outerRingPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _TrajectoryPainter oldDelegate) {
-    return oldDelegate.from != from ||
-        oldDelegate.to != to ||
-        oldDelegate.squareSize != squareSize;
-  }
-}
-
 class _PieceWidget extends StatelessWidget {
   final String piece;
+  final bool isSquareLight;
+  final String pieceTheme;
 
-  const _PieceWidget({required this.piece});
+  const _PieceWidget({
+    required this.piece,
+    required this.isSquareLight,
+    this.pieceTheme = 'tactical',
+  });
 
   static const Map<String, String> _pieceSymbols = {
     'p': '♟',
@@ -678,31 +559,81 @@ class _PieceWidget extends StatelessWidget {
     final symbol = _pieceSymbols[piece] ?? '';
     final isWhite = piece == piece.toUpperCase();
 
+    final Color pieceColor;
+    final List<Shadow> shadows;
+
+    if (pieceTheme == 'neon_phosphor') {
+      if (isWhite) {
+        pieceColor = const Color(0xFF00FF88);
+        shadows = const [
+          Shadow(color: Color(0xFF00FF88), blurRadius: 10),
+          Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 2)),
+        ];
+      } else {
+        pieceColor = const Color(0xFFFFD700);
+        shadows = const [
+          Shadow(color: Color(0xFFFFD700), blurRadius: 10),
+          Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 2)),
+        ];
+      }
+    } else if (pieceTheme == 'classic') {
+      if (isWhite) {
+        pieceColor = const Color(0xFFFAF8F5);
+        shadows = const [
+          Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1.5)),
+        ];
+      } else {
+        pieceColor = const Color(0xFF1E232A);
+        shadows = const [
+          Shadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 1.5)),
+        ];
+      }
+    } else if (pieceTheme == 'obsidian') {
+      if (isWhite) {
+        pieceColor = const Color(0xFFE2E8F0);
+        shadows = const [
+          Shadow(color: Color(0x9938BDF8), blurRadius: 8, offset: Offset(0, 1)),
+        ];
+      } else {
+        pieceColor = isSquareLight
+            ? const Color(0xFF090F16)
+            : const Color(0xFF1E293B);
+        shadows = const [
+          Shadow(color: Color(0x99EF4444), blurRadius: 8, offset: Offset(0, 1)),
+        ];
+      }
+    } else {
+      // 'tactical' - Default Tactical Grandmaster from mockup
+      if (isWhite) {
+        pieceColor = Colors.white;
+        shadows = const [
+          Shadow(
+            color: Colors.black87,
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ];
+      } else {
+        pieceColor = isSquareLight
+            ? const Color(0xFF0E141C)
+            : const Color(0xFFDDE3EE);
+        shadows = [
+          Shadow(
+            color: Colors.black.withValues(alpha: isSquareLight ? 0.6 : 0.8),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ];
+      }
+    }
+
     return Text(
       symbol,
       style: TextStyle(
         fontSize: 34,
         height: 1.0,
-        color: isWhite ? const Color(0xFFF1FFEF) : const Color(0xFFDDE3EE),
-        shadows: isWhite
-            ? const [
-                Shadow(
-                  color: Colors.black87,
-                  blurRadius: 6,
-                  offset: Offset(0, 2),
-                ),
-                Shadow(
-                  color: Color(0x4400FF88),
-                  blurRadius: 4,
-                ),
-              ]
-            : const [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 6,
-                  offset: Offset(0, 2),
-                ),
-              ],
+        color: pieceColor,
+        shadows: shadows,
       ),
     );
   }

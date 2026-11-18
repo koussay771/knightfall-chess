@@ -780,10 +780,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final totalSeconds = (ms / 1000).ceil();
     final minutes = totalSeconds ~/ 60;
     final seconds = totalSeconds % 60;
-    if (ms < 10000 && ms > 0) {
-      final tenths = ((ms % 1000) / 100).floor();
-      return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}.$tenths';
-    }
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
@@ -799,8 +795,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final board = ref.watch(chessBoardProvider);
     final premove = ref.watch(premoveProvider);
     final themeId = ref.watch(boardThemeProvider);
+    final pieceTheme = ref.watch(pieceThemeProvider);
     final themeColors = AppThemes.boardThemes[themeId] ??
-        const [Color(0xFF242A33), Color(0xFF161C24)];
+        const [Color(0xFFCFD8DC), Color(0xFF16202C)];
 
     final isFlipped =
         _manualFlip ? (widget.myColor == 'white') : (widget.myColor == 'black');
@@ -819,32 +816,28 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       backgroundColor: const Color(0xFF0E141C),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 4.0),
           child: Column(
             children: [
-              // ── 1. Top Header & LAN Status Bar ──
+              // ── 1. Top Header Matching "KNIGHTFALL CHESS" Mockup ──
               _buildTopHeader(),
-              const SizedBox(height: 4),
-
-              // ── 2. Audio/Haptic Micro Telemetry Cue Pill ──
-              _buildTelemetryPill(),
               const SizedBox(height: 6),
 
-              // ── 3. Opponent Card Banner (Top) ──
+              // ── 2. Opponent Card Banner with Connection Latency & Stockfish Status ──
               _buildOpponentBanner(
                 opponentTimeMs: opponentTimeMs,
                 isActive: !isMyTurn,
                 advantage: opponentAdvantage,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
 
-              // ── 4. Precision 8x8 Chess Board Arena with Integrated Eval Strip ──
+              // ── 3. Precision 8x8 Chess Arena Frame with Evaluation Bar ──
               Expanded(
                 child: Center(
                   child: AspectRatio(
                     aspectRatio: 1.0,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
                         color: const Color(0xFF090F16),
                         borderRadius: BorderRadius.circular(14),
@@ -858,27 +851,27 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       ),
                       child: Row(
                         children: [
-                          // Engine Evaluation Strip
+                          // Engine Evaluation Strip (matching mockup)
                           Container(
-                            width: 3.5,
+                            width: 5.0,
                             decoration: BoxDecoration(
                               color: const Color(0xFF2F353E),
-                              borderRadius: BorderRadius.circular(2),
+                              borderRadius: BorderRadius.circular(3),
                             ),
                             child: Align(
                               alignment: Alignment.bottomCenter,
                               child: Container(
-                                height: 120,
+                                height: 130,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF00FF88),
-                                  borderRadius: BorderRadius.circular(2),
+                                  color: const Color(0xFFF1FFEF),
+                                  borderRadius: BorderRadius.circular(3),
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 5),
 
-                          // 8x8 Board
+                          // 8x8 Board (No green arc arrow)
                           Expanded(
                             child: BoardWidget(
                               fen: board.fen,
@@ -893,6 +886,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                               flipped: isFlipped,
                               lightSquareColor: themeColors[0],
                               darkSquareColor: themeColors[1],
+                              pieceTheme: pieceTheme,
                               shakeTrigger: _shakeTrigger,
                               onSquareTapped: _handleSquareTapped,
                               onPieceDropped: _handlePieceDropped,
@@ -905,25 +899,25 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 ),
               ),
 
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
 
-              // ── 5. Player HUD Banner (Bottom) ──
+              // ── 4. Bottom Player HUD Banner with Glowing Border ──
               _buildPlayerBanner(
                 myTimeMs: myTimeMs,
                 isActive: isMyTurn,
-                advantage: myAdvantage,
+                moveCount: board.moveHistory.length ~/ 2 + 1,
               ),
               const SizedBox(height: 6),
 
-              // ── 6. Horizontal Move Notation Scroll Ticker ──
+              // ── 5. Tactical Action Controls: [ Flip ], [ Offer Draw ], [ Resign ], [ Arbiter ] ──
+              _buildActionControls(),
+              const SizedBox(height: 6),
+
+              // ── 6. Micro Move Notation Ticker with PGN button ──
               _buildMoveTicker(board.moveHistory),
               const SizedBox(height: 6),
 
-              // ── 7. Streamlined Tactical Action Dock ──
-              _buildActionDock(),
-              const SizedBox(height: 6),
-
-              // ── 8. Pinned Bottom Navigation Bar ──
+              // ── 7. Pinned Bottom Navigation: Play, Network, Board, History ──
               _buildBottomNav(),
             ],
           ),
@@ -932,150 +926,97 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
-  // ── Header Component ───────────────────────────────────────────────────────
+  // ── Header Component: Matching Mockup "KNIGHTFALL CHESS" ──────────────────
   Widget _buildTopHeader() {
     return SizedBox(
-      height: 38,
+      height: 44,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              const Text(
-                'KNIGHTFALL',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                  color: Color(0xFFF1FFEF),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161C24),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF242A33)),
+                ),
+                child: const Center(
+                  child: Text('♞', style: TextStyle(fontSize: 20, color: Color(0xFF00FF88))),
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A2028),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF3B4B3D)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('● ',
-                        style:
-                            TextStyle(color: Color(0xFF00FF88), fontSize: 9)),
-                    Text(
-                      'LAN P2P',
-                      style: TextStyle(
-                        color: Color(0xFF00FF88),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                      ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'KNIGHTFALL CHESS',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                      color: Color(0xFFF1FFEF),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF00FF88),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0xFF00FF88),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      const Text(
+                        'LAN: 192.168.1.45',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF00E479),
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
           Row(
             children: [
               IconButton(
-                icon: Icon(
-                  _fxEnabled ? Icons.vibration : Icons.volume_off,
-                  size: 20,
-                  color: _fxEnabled
-                      ? const Color(0xFF00FF88)
-                      : const Color(0xFF849585),
-                ),
+                icon: const Icon(Icons.tune, size: 20, color: Color(0xFFB9CBB9)),
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                tooltip: 'Toggle FX',
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                tooltip: 'Quick Settings',
                 onPressed: () => setState(() => _fxEnabled = !_fxEnabled),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Container(
-                width: 28,
-                height: 28,
+                width: 32,
+                height: 32,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: Color(0xFF00FF88),
                 ),
                 child: const Center(
-                  child:
-                      Icon(Icons.person, size: 16, color: Color(0xFF003919)),
+                  child: Icon(Icons.person, size: 18, color: Color(0xFF003919)),
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Telemetry Pill Component ───────────────────────────────────────────────
-  Widget _buildTelemetryPill() {
-    return SizedBox(
-      height: 20,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1.5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF161C24),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.graphic_eq,
-                    size: 12, color: Color(0xFF00FF88)),
-                const SizedBox(width: 4),
-                Text(
-                  _fxEnabled ? 'AUDIO: LOW THUD' : 'AUDIO: MUTED',
-                  style: const TextStyle(
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
-                    color: Color(0xFFB9CBB9),
-                  ),
-                ),
-                const Text(' • ',
-                    style: TextStyle(fontSize: 8, color: Color(0xFF3B4B3D))),
-                const Text(
-                  '85MS HAPTIC TAP',
-                  style: TextStyle(
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
-                    color: Color(0xFF00E479),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1.5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF161C24),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('● ',
-                    style: TextStyle(color: Color(0xFF00FF88), fontSize: 8)),
-                Text(
-                  '14ms Direct P2P',
-                  style: TextStyle(
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFB9CBB9),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -1088,276 +1029,418 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     required bool isActive,
     required int advantage,
   }) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF161C24),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF242A33)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
+    return Column(
+      children: [
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF161C24),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF242A33),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.person, size: 20, color: Color(0xFFDDE3EE)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            widget.opponentName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFDDE3EE),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2F353E),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              '1790',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFB9CBB9),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      const Row(
+                        children: [
+                          Text('● ', style: TextStyle(color: Color(0xFF00FF88), fontSize: 8)),
+                          Text(
+                            '12ms (Direct LAN)',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: Color(0xFF00E479),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
               Container(
-                width: 32,
-                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF242A33),
+                  color: const Color(0xFF1A2028),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Center(
-                  child: Text(
-                    widget.opponentName.length >= 2
-                        ? widget.opponentName.substring(0, 2).toUpperCase()
-                        : 'OP',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFDDE3EE),
-                    ),
+                child: Text(
+                  _formatTime(opponentTimeMs),
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: isActive
+                        ? const Color(0xFF00FF88)
+                        : const Color(0xFFDDE3EE),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Piece Advantage Row & Engine Telemetry
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        widget.opponentName,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFDDE3EE),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2F353E),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          widget.isBot ? '1500 BOT' : '2418 GM',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFFFE16D),
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    '♟ ♟ ♞',
+                    style: TextStyle(fontSize: 13, color: Color(0xFFDDE3EE)),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Text(
-                        '♟ ♟ ♞',
-                        style: TextStyle(
-                            fontSize: 10, color: Color(0xFF849585)),
+                  SizedBox(width: 4),
+                  Text(
+                    '+1',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF00FF88),
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  const Text(
+                    'STOCKFISH 16.1',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: Color(0xFFB9CBB9),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF090F16),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      '+0.4',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00FF88),
                       ),
-                      if (advantage > 0) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 0.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2F353E),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            '+$advantage',
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFB9CBB9),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ],
               ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A2028),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isActive
-                    ? const Color(0xFF00FF88)
-                    : const Color(0xFF2F353E),
-                width: isActive ? 1.2 : 1.0,
-              ),
-            ),
-            child: Text(
-              _formatTime(opponentTimeMs),
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: isActive
-                    ? const Color(0xFF00FF88)
-                    : const Color(0xFFDDE3EE),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // ── Player Banner Component ───────────────────────────────────────────────
+  // ── Player Banner Component with Glowing Left Border ──────────────────────
   Widget _buildPlayerBanner({
     required int myTimeMs,
     required bool isActive,
-    required int advantage,
+    required int moveCount,
   }) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A2028),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isActive ? const Color(0xFF00FF88) : const Color(0xFF242A33),
-          width: isActive ? 1.2 : 1.0,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
+    return Column(
+      children: [
+        // Turn / Advantage Tracker
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00FF88),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    widget.myPlayerName.length >= 2
-                        ? widget.myPlayerName.substring(0, 2).toUpperCase()
-                        : 'GX',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF003919),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        widget.myPlayerName.isEmpty
-                            ? 'Grandmaster_X'
-                            : widget.myPlayerName,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFF1FFEF),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: const Color(0x3300FF88),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          '1845',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF00FF88),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Text(
-                        isActive ? '● Your Turn' : '● Waiting',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: isActive
-                              ? const Color(0xFF00FF88)
-                              : const Color(0xFF849585),
-                        ),
-                      ),
-                      if (advantage > 0) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 0.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00FF88),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            '+$advantage',
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF003919),
-                            ),
-                          ),
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFFFFDB3C),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFFFDB3C),
+                          blurRadius: 6,
                         ),
                       ],
-                    ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'YOUR TURN',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                      color: Color(0xFFFFDB3C),
+                    ),
+                  ),
+                  Text(
+                    ' | Move $moveCount',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFB9CBB9),
+                    ),
                   ),
                 ],
               ),
+              const Text(
+                '♙ ♙ ♙ ♗',
+                style: TextStyle(fontSize: 13, color: Colors.white70),
+              ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF242A33),
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: isActive
-                  ? const [
+        ),
+        const SizedBox(height: 4),
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2028),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black38,
+                blurRadius: 6,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
+              children: [
+                // Glowing emerald vertical accent line on left border
+                Container(
+                  width: 4,
+                  height: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00FF88),
+                    boxShadow: [
                       BoxShadow(
-                        color: Color(0x3300FF88),
-                        blurRadius: 10,
+                        color: Color(0xFF00FF88),
+                        blurRadius: 8,
                         spreadRadius: 1,
                       ),
-                    ]
-                  : null,
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Avatar + User Details
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF343A42),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            '♟',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Color(0xFF00FF88),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                widget.myPlayerName.isEmpty
+                                    ? 'Grandmaster_X'
+                                    : widget.myPlayerName,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFF1FFEF),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x3300FF88),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  '1845',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF00FF88),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'White • Rapid Tournament',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: Color(0xFFB9CBB9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Active countdown clock
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF242A33),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: isActive
+                          ? const [
+                              BoxShadow(
+                                color: Color(0x33FFDB3C),
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Text(
+                      _formatTime(myTimeMs),
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: isActive
+                            ? const Color(0xFFFFDB3C)
+                            : const Color(0xFF00FF88),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: Text(
-              _formatTime(myTimeMs),
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: isActive
-                    ? const Color(0xFF00FF88)
-                    : const Color(0xFFFFDB3C),
-              ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Action Controls: [ Flip ], [ Offer Draw ], [ Resign ], [ Arbiter ] ────
+  Widget _buildActionControls() {
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: [
+          Expanded(
+            child: _TacticalButton(
+              icon: Icons.swap_vert,
+              label: 'Flip',
+              iconColor: const Color(0xFFB9CBB9),
+              onTap: () => setState(() => _manualFlip = !_manualFlip),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _TacticalButton(
+              icon: Icons.handshake,
+              label: _drawOffered ? 'Pending...' : 'Offer Draw',
+              iconColor: const Color(0xFFFFE16D),
+              onTap: _offerDraw,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _TacticalButton(
+              icon: Icons.flag,
+              label: 'Resign',
+              iconColor: const Color(0xFFFFB4AB),
+              textColor: const Color(0xFFFFB4AB),
+              onTap: _confirmResign,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _TacticalButton(
+              icon: Icons.gavel,
+              label: 'Arbiter',
+              iconColor: const Color(0xFF00E479),
+              textColor: const Color(0xFF00E479),
+              onTap: _sendTakebackRequest,
             ),
           ),
         ],
@@ -1365,22 +1448,26 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
-  // ── Move Ticker Component ─────────────────────────────────────────────────
+  // ── Micro Move Notation Ticker with PGN Label ─────────────────────────────
   Widget _buildMoveTicker(List<Map<String, dynamic>> moveHistory) {
     return Container(
-      height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFF090F16),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
           Expanded(
             child: moveHistory.isEmpty
                 ? const Text(
-                    'No moves yet — game started',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF849585)),
+                    '1. e4 e5   2. Nf3 Nc6   3. Bb5 ...',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: Color(0xFF849585),
+                    ),
                   )
                 : ListView.builder(
                     controller: _moveScrollController,
@@ -1403,7 +1490,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                               fontSize: 11,
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF849585),
+                              color: Color(0xFFB9CBB9),
                             ),
                           ),
                           Container(
@@ -1424,7 +1511,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                     ? FontWeight.bold
                                     : FontWeight.normal,
                                 color: (isLatest && blackSan == null)
-                                    ? const Color(0xFF00FF88)
+                                    ? const Color(0xFFFFDB3C)
                                     : const Color(0xFFDDE3EE),
                               ),
                             ),
@@ -1450,7 +1537,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                           ? FontWeight.bold
                                           : FontWeight.normal,
                                   color: (i * 2 + 1 == moveHistory.length - 1)
-                                      ? const Color(0xFF00FF88)
+                                      ? const Color(0xFFFFDB3C)
                                       : const Color(0xFFDDE3EE),
                                 ),
                               ),
@@ -1465,14 +1552,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.history, size: 14, color: Color(0xFF849585)),
-              SizedBox(width: 2),
+              Icon(Icons.history, size: 16, color: Color(0xFFB9CBB9)),
+              SizedBox(width: 3),
               Text(
                 'PGN',
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF849585),
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFB9CBB9),
                 ),
               ),
             ],
@@ -1482,86 +1570,45 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
-  // ── Tactical Action Dock Component ─────────────────────────────────────────
-  Widget _buildActionDock() {
-    return SizedBox(
-      height: 42,
-      child: Row(
-        children: [
-          Expanded(
-            child: _DockButton(
-              icon: Icons.sync_alt,
-              label: 'Flip',
-              onTap: () => setState(() => _manualFlip = !_manualFlip),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: _DockButton(
-              icon: Icons.handshake,
-              label: _drawOffered ? 'Pending...' : 'Draw',
-              iconColor: const Color(0xFFFFDB3C),
-              onTap: _offerDraw,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: _DockButton(
-              icon: Icons.flag,
-              label: 'Resign',
-              iconColor: const Color(0xFFFFB4AB),
-              textColor: const Color(0xFFFFB4AB),
-              onTap: _confirmResign,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: _DockButton(
-              icon: Icons.undo,
-              label: 'Takeback',
-              iconColor: const Color(0xFF00FF88),
-              textColor: const Color(0xFF00FF88),
-              onTap: _sendTakebackRequest,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── Pinned Bottom Nav Component ────────────────────────────────────────────
   Widget _buildBottomNav() {
     return Container(
-      height: 46,
+      height: 48,
       decoration: BoxDecoration(
-        color: const Color(0xFF090F16),
+        color: const Color(0xFF0E141C).withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF161C24)),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 16,
+            offset: Offset(0, -4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _NavItem(
+          _NavIcon(
             icon: Icons.sports_esports,
             label: 'Play',
             isActive: false,
             onTap: () => Navigator.of(context).pop(),
           ),
-          _NavItem(
-            icon: Icons.hub,
+          _NavIcon(
+            icon: Icons.radar,
             label: 'Network',
             isActive: false,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const NetworkHubPage()),
             ),
           ),
-          const _NavItem(
+          const _NavIcon(
             icon: Icons.grid_view,
             label: 'Board',
             isActive: true,
           ),
-          _NavItem(
-            icon: Icons.history_edu,
+          _NavIcon(
+            icon: Icons.emoji_events,
             label: 'History',
             isActive: false,
             onTap: () => Navigator.of(context).push(
@@ -1575,14 +1622,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 }
 
-class _DockButton extends StatelessWidget {
+class _TacticalButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color iconColor;
   final Color textColor;
   final VoidCallback onTap;
 
-  const _DockButton({
+  const _TacticalButton({
     required this.icon,
     required this.label,
     this.iconColor = const Color(0xFFB9CBB9),
@@ -1594,17 +1641,23 @@ class _DockButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF161C24),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF242A33)),
+          color: const Color(0xFF1A2028),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 2,
+              offset: Offset(0, 1),
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: iconColor),
+            Icon(icon, size: 18, color: iconColor),
             const SizedBox(height: 2),
             Text(
               label,
@@ -1613,6 +1666,8 @@ class _DockButton extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: textColor,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -1621,13 +1676,13 @@ class _DockButton extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _NavIcon extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
   final VoidCallback? onTap;
 
-  const _NavItem({
+  const _NavIcon({
     required this.icon,
     required this.label,
     required this.isActive,
@@ -1636,24 +1691,38 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        isActive ? const Color(0xFF00FF88) : const Color(0xFF849585);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(height: 1),
+            Icon(
+              icon,
+              size: 20,
+              color: isActive
+                  ? const Color(0xFF00FF88)
+                  : const Color(0xFFB9CBB9),
+              shadows: isActive
+                  ? const [
+                      Shadow(
+                        color: Color(0x6600FF88),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
+            ),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 9.5,
                 fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
-                color: color,
+                color: isActive
+                    ? const Color(0xFF00FF88)
+                    : const Color(0xFFB9CBB9),
               ),
             ),
           ],

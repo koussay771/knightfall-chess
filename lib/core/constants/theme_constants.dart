@@ -56,10 +56,19 @@ class AppThemes {
   AppThemes._();
 
   static const Map<String, List<Color>> boardThemes = {
+    'cyber_slate': [Color(0xFFCFD8DC), Color(0xFF16202C)],
+    'tactical_dark': [Color(0xFF242A33), Color(0xFF161C24)],
     'classic_wood': [Color(0xFFF0D9B5), Color(0xFFB58863)],
     'tournament_green': [Color(0xFFEEEED2), Color(0xFF769656)],
     'midnight_dark': [Color(0xFF4A4A6A), Color(0xFF1E1E3A)],
     'neon_night': [Color(0xFF1C2535), Color(0xFF0D1520)],
+  };
+
+  static const Map<String, String> pieceThemes = {
+    'tactical': 'Tactical Grandmaster',
+    'classic': 'Classic Woodcraft',
+    'neon_phosphor': 'Cyber Neon',
+    'obsidian': 'Obsidian Stealth',
   };
 
   static ThemeData get darkTheme => ThemeData(

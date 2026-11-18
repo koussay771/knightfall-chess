@@ -34,16 +34,33 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   ];
 
   static const _boardThemeKeys = [
-    'classic_wood',
+    'cyber_slate',
+    'tactical_dark',
     'tournament_green',
+    'classic_wood',
     'midnight_dark',
     'neon_night',
   ];
   static const _boardThemeLabels = [
-    'Classic Wood',
+    'Cyber Slate',
+    'Tactical Dark',
     'Tournament Green',
+    'Classic Wood',
     'Midnight Dark',
     'Neon Night',
+  ];
+
+  static const _pieceThemeKeys = [
+    'tactical',
+    'classic',
+    'neon_phosphor',
+    'obsidian',
+  ];
+  static const _pieceThemeLabels = [
+    'Tactical Grandmaster',
+    'Classic Woodcraft',
+    'Cyber Neon',
+    'Obsidian Stealth',
   ];
 
   @override
@@ -90,6 +107,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   @override
   Widget build(BuildContext context) {
     final currentThemeId = ref.watch(boardThemeProvider);
+    final currentPieceTheme = ref.watch(pieceThemeProvider);
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -387,7 +405,103 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 );
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 18),
+            const Divider(color: AppColors.border),
+            const SizedBox(height: 10),
+
+            // ── Piece Themes ──
+            const _Label('Piece Style Theme'),
+            const SizedBox(height: 10),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 2.6,
+              ),
+              itemCount: _pieceThemeKeys.length,
+              itemBuilder: (ctx, i) {
+                final key = _pieceThemeKeys[i];
+                final label = _pieceThemeLabels[i];
+                final selected = currentPieceTheme == key;
+
+                return GestureDetector(
+                  onTap: () =>
+                      ref.read(pieceThemeProvider.notifier).setTheme(key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    decoration: BoxDecoration(
+                      color: AppColors.bg2,
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusMedium),
+                      border: Border.all(
+                        color: selected
+                            ? AppColors.neonGreen
+                            : AppColors.border,
+                        width: selected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Mini piece preview
+                        Container(
+                          width: 44,
+                          height: double.infinity,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF16202C),
+                            borderRadius: BorderRadius.only(
+                              topLeft:
+                                  Radius.circular(AppDimensions.radiusMedium - 1),
+                              bottomLeft:
+                                  Radius.circular(AppDimensions.radiusMedium - 1),
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '♚ ♞',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: key == 'neon_phosphor'
+                                    ? const Color(0xFF00FF88)
+                                    : key == 'classic'
+                                        ? const Color(0xFFFAF8F5)
+                                        : key == 'obsidian'
+                                            ? const Color(0xFF38BDF8)
+                                            : Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              color: selected
+                                  ? AppColors.neonGreen
+                                  : AppColors.textSecondary,
+                              fontSize: 10.5,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        if (selected)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 6),
+                            child: Icon(Icons.check_circle,
+                                color: AppColors.neonGreen, size: 14),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
