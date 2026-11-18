@@ -1,12 +1,14 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-/// Responsive 8x8 Chess Board Widget with:
-/// - Smooth Draggable & DragTarget "piece flying" with clean elevation shadow
-/// - Subtle target destination indicators on legal squares when a piece is active
-/// - Warm gold/yellow highlights for the last move (from & to)
-/// - King in check highlighted in intense flashing red with radial glow
-/// - Smooth horizontal board shake animation on illegal moves or check exposure
+/// Responsive 8x8 Precision Chess Board Widget matching Knightfall Dark HUD:
+/// - Centered 8x8 custom dark slate/charcoal board
+/// - Smooth arc/curve trajectory arrow with glowing green path and elevation rings
+/// - Last move highlights in gold/yellow (from & to)
+/// - King in check pulsing in intense red with "CHK" corner badge
+/// - Subtle legal move glowing target dots and capture rings when active
+/// - Smooth horizontal board shake animation on illegal moves
+/// - Smooth piece drag-and-drop piece flying
 class BoardWidget extends StatefulWidget {
   final String fen;
   final String? selectedSquare;
@@ -34,8 +36,8 @@ class BoardWidget extends StatefulWidget {
     this.premoveTo,
     this.checkSquare,
     this.flipped = false,
-    this.lightSquareColor = const Color(0xFFEEEED2),
-    this.darkSquareColor = const Color(0xFF769656),
+    this.lightSquareColor = const Color(0xFF242A33),
+    this.darkSquareColor = const Color(0xFF161C24),
     this.shakeTrigger = 0,
     required this.onSquareTapped,
     this.onPieceDropped,
@@ -82,6 +84,18 @@ class _BoardWidgetState extends State<BoardWidget>
         final size = constraints.maxWidth < constraints.maxHeight
             ? constraints.maxWidth
             : constraints.maxHeight;
+        final squareSize = size / 8;
+
+        final fromCenter = _getSquareCenter(
+          widget.lastMoveFrom,
+          widget.flipped,
+          squareSize,
+        );
+        final toCenter = _getSquareCenter(
+          widget.lastMoveTo,
+          widget.flipped,
+          squareSize,
+        );
 
         return Center(
           child: AnimatedBuilder(
@@ -98,61 +112,84 @@ class _BoardWidgetState extends State<BoardWidget>
               width: size,
               height: size,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
+                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFF090F16),
+                border: Border.all(color: const Color(0xFF2F353E), width: 1.5),
+                boxShadow: const [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: Colors.black87,
+                    blurRadius: 16,
+                    offset: Offset(0, 6),
                   ),
                 ],
               ),
               clipBehavior: Clip.antiAlias,
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 8,
-                ),
-                itemCount: 64,
-                itemBuilder: (context, index) {
-                  final rankIndex = index ~/ 8; // 0..7
-                  final fileIndex = index % 8; // 0..7
+              child: Stack(
+                children: [
+                  // 8x8 Grid of squares
+                  GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 8,
+                    ),
+                    itemCount: 64,
+                    itemBuilder: (context, index) {
+                      final rankIndex = index ~/ 8; // 0..7
+                      final fileIndex = index % 8; // 0..7
 
-                  final row = widget.flipped ? 7 - rankIndex : rankIndex;
-                  final col = widget.flipped ? 7 - fileIndex : fileIndex;
+                      final row = widget.flipped ? 7 - rankIndex : rankIndex;
+                      final col = widget.flipped ? 7 - fileIndex : fileIndex;
 
-                  final fileChar = String.fromCharCode('a'.codeUnitAt(0) + col);
-                  final rankChar = (8 - row).toString();
-                  final squareName = '$fileChar$rankChar';
+                      final fileChar =
+                          String.fromCharCode('a'.codeUnitAt(0) + col);
+                      final rankChar = (8 - row).toString();
+                      final squareName = '$fileChar$rankChar';
 
-                  final isLight = (row + col) % 2 == 0;
-                  final piece = boardMatrix[row][col];
-                  final isLegalTarget =
-                      widget.legalTargets.contains(squareName);
+                      final isLight = (row + col) % 2 == 0;
+                      final piece = boardMatrix[row][col];
+                      final isLegalTarget =
+                          widget.legalTargets.contains(squareName);
 
-                  return _SquareTile(
-                    squareName: squareName,
-                    isLight: isLight,
-                    piece: piece,
-                    lightColor: widget.lightSquareColor,
-                    darkColor: widget.darkSquareColor,
-                    isSelected: widget.selectedSquare == squareName,
-                    isLastMove: widget.lastMoveFrom == squareName ||
-                        widget.lastMoveTo == squareName,
-                    isPremove: widget.premoveFrom == squareName ||
-                        widget.premoveTo == squareName,
-                    isCheck: widget.checkSquare == squareName,
-                    isLegalTarget: isLegalTarget,
-                    showFileLabel:
-                        widget.flipped ? rankIndex == 0 : rankIndex == 7,
-                    showRankLabel:
-                        widget.flipped ? fileIndex == 7 : fileIndex == 0,
-                    fileLabel: fileChar,
-                    rankLabel: rankChar,
-                    onTap: () => widget.onSquareTapped(squareName),
-                    onPieceDropped: widget.onPieceDropped,
-                  );
-                },
+                      return _SquareTile(
+                        squareName: squareName,
+                        isLight: isLight,
+                        piece: piece,
+                        lightColor: widget.lightSquareColor,
+                        darkColor: widget.darkSquareColor,
+                        isSelected: widget.selectedSquare == squareName,
+                        isLastMoveFrom: widget.lastMoveFrom == squareName,
+                        isLastMoveTo: widget.lastMoveTo == squareName,
+                        isPremove: widget.premoveFrom == squareName ||
+                            widget.premoveTo == squareName,
+                        isCheck: widget.checkSquare == squareName,
+                        isLegalTarget: isLegalTarget,
+                        showFileLabel:
+                            widget.flipped ? rankIndex == 0 : rankIndex == 7,
+                        showRankLabel:
+                            widget.flipped ? fileIndex == 7 : fileIndex == 0,
+                        fileLabel: fileChar,
+                        rankLabel: rankChar,
+                        onTap: () => widget.onSquareTapped(squareName),
+                        onPieceDropped: widget.onPieceDropped,
+                      );
+                    },
+                  ),
+
+                  // Trajectory Curve Overlay (non-blocking)
+                  if (fromCenter != null && toCenter != null)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          painter: _TrajectoryPainter(
+                            from: fromCenter,
+                            to: toCenter,
+                            squareSize: squareSize,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -161,7 +198,27 @@ class _BoardWidgetState extends State<BoardWidget>
     );
   }
 
-  /// Parses the board placement segment of a FEN string into an 8x8 matrix.
+  static Offset? _getSquareCenter(
+      String? sq, bool flipped, double squareSize) {
+    if (sq == null || sq.length < 2) return null;
+    final file = sq.codeUnitAt(0) - 'a'.codeUnitAt(0);
+    final rank = int.tryParse(sq[1]);
+    if (rank == null || file < 0 || file > 7 || rank < 1 || rank > 8) {
+      return null;
+    }
+
+    final row = 8 - rank;
+    final col = file;
+
+    final actualCol = flipped ? 7 - col : col;
+    final actualRow = flipped ? 7 - row : row;
+
+    return Offset(
+      (actualCol + 0.5) * squareSize,
+      (actualRow + 0.5) * squareSize,
+    );
+  }
+
   static List<List<String?>> _parseFenToMatrix(String fen) {
     final matrix = List.generate(8, (_) => List<String?>.filled(8, null));
     final placement = fen.split(' ').first;
@@ -194,7 +251,8 @@ class _SquareTile extends StatelessWidget {
   final Color lightColor;
   final Color darkColor;
   final bool isSelected;
-  final bool isLastMove;
+  final bool isLastMoveFrom;
+  final bool isLastMoveTo;
   final bool isPremove;
   final bool isCheck;
   final bool isLegalTarget;
@@ -212,7 +270,8 @@ class _SquareTile extends StatelessWidget {
     required this.lightColor,
     required this.darkColor,
     required this.isSelected,
-    required this.isLastMove,
+    required this.isLastMoveFrom,
+    required this.isLastMoveTo,
     required this.isPremove,
     required this.isCheck,
     required this.isLegalTarget,
@@ -227,17 +286,6 @@ class _SquareTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseColor = isLight ? lightColor : darkColor;
-
-    Color? overlayColor;
-    if (isPremove) {
-      overlayColor = const Color(0xAAFF7043); // Premove orange/red
-    } else if (isSelected) {
-      overlayColor = const Color(0x9966BB6A); // Selected square green
-    } else if (isLastMove) {
-      overlayColor = const Color(0x99F6E05E); // Rich Chess.com gold/yellow
-    }
-
-    final textColor = isLight ? darkColor : lightColor;
 
     return DragTarget<String>(
       onWillAcceptWithDetails: (details) => details.data != squareName,
@@ -256,66 +304,147 @@ class _SquareTile extends StatelessWidget {
             color: baseColor,
             child: Stack(
               children: [
-                // Highlight overlay (last move, selected, premove)
-                if (overlayColor != null)
+                // Highlight: Last Move From (warm amber ghost trail)
+                if (isLastMoveFrom)
                   Positioned.fill(
-                    child: Container(color: overlayColor),
+                    child: Container(
+                      color: const Color(0x38FFD700),
+                      child: Center(
+                        child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xAAFFD700),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
 
-                // King in Check: Intense pulsing red warning flash
-                if (isCheck)
+                // Highlight: Last Move To (subtle amber arrival glow)
+                if (isLastMoveTo)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0x40FFD700),
+                        border: Border.all(
+                          color: const Color(0x66FFD700),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Selected square: Vibrant neon green overlay & inner glow
+                if (isSelected)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0x4000FF88),
+                        border: Border.all(
+                          color: const Color(0xFF00FF88),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Premove: Cyber-orange corners
+                if (isPremove)
+                  Positioned.fill(
+                    child: Container(
+                      color: const Color(0x33FF8C00),
+                    ),
+                  ),
+
+                // King in Check: Intense pulsing red halo with CHK corner badge
+                if (isCheck) ...[
                   const Positioned.fill(
                     child: _CheckHighlightWidget(),
                   ),
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF690005),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: const Color(0xFFFFB4AB),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: const Text(
+                        'CHK',
+                        style: TextStyle(
+                          color: Color(0xFFFFB4AB),
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
 
-                // Rank label (top-left)
+                // Rank coordinate label (top-left)
                 if (showRankLabel)
                   Positioned(
                     top: 2,
                     left: 3,
                     child: Text(
                       rankLabel,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: textColor.withValues(alpha: 0.85),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF849585),
                       ),
                     ),
                   ),
 
-                // File label (bottom-right)
+                // File coordinate label (bottom-right)
                 if (showFileLabel)
                   Positioned(
                     bottom: 1,
                     right: 3,
                     child: Text(
                       fileLabel,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: textColor.withValues(alpha: 0.85),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF849585),
                       ),
                     ),
                   ),
 
-                // Move Paths & Legal Targets:
-                // Subtle centered dot on empty square
+                // Legal Move Target: Subtle glowing emerald dot on empty square
                 if (isLegalTarget && piece == null)
                   Center(
                     child: Container(
-                      key: const Key('legal_move_dot'),
                       width: 14,
                       height: 14,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isLight
-                            ? Colors.black.withValues(alpha: 0.18)
-                            : Colors.black.withValues(alpha: 0.28),
+                        color: Color(0x3300FF88),
+                      ),
+                      child: Center(
+                        child: Container(
+                          key: const Key('legal_move_dot'),
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFF00FF88),
+                          ),
+                        ),
                       ),
                     ),
                   ),
 
-                // Subtle hollow ring around enemy capture targets
+                // Legal Move Capture: Hollow glowing emerald ring on occupied square
                 if (isLegalTarget && piece != null)
                   Center(
                     child: Container(
@@ -325,16 +454,21 @@ class _SquareTile extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isLight
-                              ? Colors.black.withValues(alpha: 0.22)
-                              : Colors.black.withValues(alpha: 0.32),
-                          width: 4.5,
+                          color: const Color(0xCC00FF88),
+                          width: 3.5,
                         ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x4400FF88),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
                       ),
                     ),
                   ),
 
-                // Piece Widget with smooth Chess.com-style Draggable
+                // Chess Piece Widget with smooth elevation drag
                 if (piece != null)
                   Center(
                     child: Draggable<String>(
@@ -345,13 +479,13 @@ class _SquareTile extends StatelessWidget {
                         child: Transform.scale(
                           scale: 1.18,
                           child: Container(
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.45),
-                                  blurRadius: 18,
+                                  color: Colors.black87,
+                                  blurRadius: 20,
                                   spreadRadius: 2,
-                                  offset: const Offset(0, 8),
+                                  offset: Offset(0, 8),
                                 ),
                               ],
                             ),
@@ -407,19 +541,17 @@ class _CheckHighlightWidgetState extends State<_CheckHighlightWidget>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (context, _) {
-        final opacity = 0.65 + (_controller.value * 0.35);
+      builder: (context, child) {
+        final opacity = 0.35 + (_controller.value * 0.45);
         return Container(
           decoration: BoxDecoration(
             gradient: RadialGradient(
               colors: [
-                const Color(0xFFFF1744).withValues(alpha: opacity),
-                const Color(0xFFD50000).withValues(alpha: opacity * 0.8),
-                const Color(0xFFB71C1C).withValues(alpha: opacity * 0.4),
-                Colors.transparent,
+                const Color(0xFFFFB4AB).withValues(alpha: 0.2),
+                const Color(0xFF93000A).withValues(alpha: opacity),
+                const Color(0xFF690005).withValues(alpha: opacity * 0.95),
               ],
-              stops: const [0.0, 0.45, 0.8, 1.0],
-              radius: 0.95,
+              stops: const [0.0, 0.75, 1.0],
             ),
           ),
         );
@@ -428,55 +560,150 @@ class _CheckHighlightWidgetState extends State<_CheckHighlightWidget>
   }
 }
 
+/// Trajectory overlay painter for smooth arc arrow and elevation rings
+class _TrajectoryPainter extends CustomPainter {
+  final Offset from;
+  final Offset to;
+  final double squareSize;
+
+  const _TrajectoryPainter({
+    required this.from,
+    required this.to,
+    required this.squareSize,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p1 = from;
+    final p2 = to;
+
+    final dx = p2.dx - p1.dx;
+    final dy = p2.dy - p1.dy;
+    final dist = sqrt(dx * dx + dy * dy);
+    if (dist < 1.0) return;
+
+    // Normal vector perpendicular to trajectory
+    final nx = -dy / dist;
+    final ny = dx / dist;
+
+    // Control point with gentle curvature
+    final curveOffset = min(squareSize * 0.45, dist * 0.22);
+    final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
+    final ctrl = Offset(mid.dx + nx * curveOffset, mid.dy + ny * curveOffset);
+
+    // 1. Glowing Neon Shadow Path
+    final glowPaint = Paint()
+      ..color = const Color(0x3300FF88)
+      ..strokeWidth = 6.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path()
+      ..moveTo(p1.dx, p1.dy)
+      ..quadraticBezierTo(ctrl.dx, ctrl.dy, p2.dx, p2.dy);
+
+    canvas.drawPath(path, glowPaint);
+
+    // 2. Main Trajectory Stroke
+    final mainPaint = Paint()
+      ..color = const Color(0xFF00FF88)
+      ..strokeWidth = 2.4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawPath(path, mainPaint);
+
+    // 3. Origin Point: Gold/Amber dot
+    final originPaint = Paint()..color = const Color(0xCCFFD700);
+    canvas.drawCircle(p1, 3.5, originPaint);
+
+    // 4. Destination Elevation Haptic Rings
+    final ringPaint = Paint()
+      ..color = const Color(0xE600FF88)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: p2,
+        width: squareSize * 0.75,
+        height: squareSize * 0.42,
+      ),
+      ringPaint,
+    );
+
+    final outerRingPaint = Paint()
+      ..color = const Color(0x5500FF88)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: p2,
+        width: squareSize * 0.95,
+        height: squareSize * 0.54,
+      ),
+      outerRingPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrajectoryPainter oldDelegate) {
+    return oldDelegate.from != from ||
+        oldDelegate.to != to ||
+        oldDelegate.squareSize != squareSize;
+  }
+}
+
 class _PieceWidget extends StatelessWidget {
   final String piece;
 
   const _PieceWidget({required this.piece});
 
+  static const Map<String, String> _pieceSymbols = {
+    'p': '♟',
+    'r': '♜',
+    'n': '♞',
+    'b': '♝',
+    'q': '♛',
+    'k': '♚',
+    'P': '♙',
+    'R': '♖',
+    'N': '♘',
+    'B': '♗',
+    'Q': '♕',
+    'K': '♔',
+  };
+
   @override
   Widget build(BuildContext context) {
+    final symbol = _pieceSymbols[piece] ?? '';
     final isWhite = piece == piece.toUpperCase();
-    final symbol = _getSymbol(piece);
 
-    return FittedBox(
-      fit: BoxFit.contain,
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: Text(
-          symbol,
-          style: TextStyle(
-            fontSize: 42,
-            height: 1.0,
-            color: isWhite ? const Color(0xFFFDFEFE) : const Color(0xFF17202A),
-            shadows: [
-              Shadow(
-                blurRadius: 4.0,
-                color: Colors.black.withValues(alpha: 0.4),
-                offset: const Offset(1, 1),
-              ),
-            ],
-          ),
-        ),
+    return Text(
+      symbol,
+      style: TextStyle(
+        fontSize: 34,
+        height: 1.0,
+        color: isWhite ? const Color(0xFFF1FFEF) : const Color(0xFFDDE3EE),
+        shadows: isWhite
+            ? const [
+                Shadow(
+                  color: Colors.black87,
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+                Shadow(
+                  color: Color(0x4400FF88),
+                  blurRadius: 4,
+                ),
+              ]
+            : const [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
       ),
     );
-  }
-
-  static String _getSymbol(String piece) {
-    switch (piece.toLowerCase()) {
-      case 'k':
-        return piece == 'K' ? '♔' : '♚';
-      case 'q':
-        return piece == 'Q' ? '♕' : '♛';
-      case 'r':
-        return piece == 'R' ? '♖' : '♜';
-      case 'b':
-        return piece == 'B' ? '♗' : '♝';
-      case 'n':
-        return piece == 'N' ? '♘' : '♞';
-      case 'p':
-        return piece == 'P' ? '♙' : '♟';
-      default:
-        return '';
-    }
   }
 }
