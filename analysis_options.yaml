@@ -1,0 +1,9 @@
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - windows/**
+  errors:
+    deprecated_member_use: ignore
+include: package:flutter_lints/flutter.yaml
