@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/theme_constants.dart';
@@ -41,9 +42,24 @@ class NetworkHubPage extends StatelessWidget {
               title: 'Host Match Hub',
               subtitle: 'Create a room · Share QR code · Control settings',
               accentColor: AppColors.neonGreen,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const HostScreen()),
-              ),
+              onTap: () {
+                if (kIsWeb) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Hosting a match server requires the native Android APK or Windows app. '
+                        'In Web browsers, use Join Match Hub to connect to an existing host.',
+                      ),
+                      backgroundColor: AppColors.loss,
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const HostScreen()),
+                );
+              },
               badgeLabel: 'HOST',
             ),
             const SizedBox(height: 14),

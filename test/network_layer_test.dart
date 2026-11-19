@@ -20,6 +20,27 @@ void main() {
       expect(NetworkUtils.decodeQrPayload('invalid_string'), isNull);
       expect(NetworkUtils.decodeQrPayload('192.168.1.1:not_a_port'), isNull);
       expect(NetworkUtils.decodeQrPayload('192.168.1.1:999999'), isNull);
+
+      // Flexible IP & URL parsing (with & without explicit port)
+      final withoutPort = NetworkUtils.decodeQrPayload('192.168.1.50');
+      expect(withoutPort, isNotNull);
+      expect(withoutPort!.ip, '192.168.1.50');
+      expect(withoutPort.port, 8080);
+
+      final httpUrl = NetworkUtils.decodeQrPayload('http://192.168.1.50:8080/');
+      expect(httpUrl, isNotNull);
+      expect(httpUrl!.ip, '192.168.1.50');
+      expect(httpUrl.port, 8080);
+
+      final wsUrl = NetworkUtils.decodeQrPayload('ws://192.168.1.50:8080/ws');
+      expect(wsUrl, isNotNull);
+      expect(wsUrl!.ip, '192.168.1.50');
+      expect(wsUrl.port, 8080);
+
+      final localhostNoPort = NetworkUtils.decodeQrPayload('localhost');
+      expect(localhostNoPort, isNotNull);
+      expect(localhostNoPort!.ip, 'localhost');
+      expect(localhostNoPort.port, 8080);
     });
 
     test('SyncProtocol generates valid newline-delimited JSON for all packet types', () {
@@ -158,7 +179,7 @@ void main() {
 
       await client1.connect(
         '127.0.0.1',
-        4545,
+        server.state.port,
         playerId: 'p1-uuid',
         name: 'Player 1',
         role: 'player',
@@ -198,7 +219,7 @@ void main() {
       // 5. Connect Client 2 (Player 2)
       await client2.connect(
         '127.0.0.1',
-        4545,
+        server.state.port,
         playerId: 'p2-uuid',
         name: 'Player 2',
         role: 'player',
@@ -222,7 +243,7 @@ void main() {
 
       await spectator.connect(
         '127.0.0.1',
-        4545,
+        server.state.port,
         playerId: 'spec-uuid',
         name: 'Spectator 1',
         role: 'spectator',
@@ -239,7 +260,7 @@ void main() {
 
       await client1.connect(
         '127.0.0.1',
-        4545,
+        server.state.port,
         playerId: 'ping-uuid',
         name: 'Ping Tester',
         role: 'player',

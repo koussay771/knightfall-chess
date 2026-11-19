@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../core/constants/app_constants.dart';
 import 'sync_protocol.dart';
@@ -51,12 +49,13 @@ class TcpClientState {
 typedef ClientMessageCallback = void Function(Map<String, dynamic> message);
 typedef ClientStatusCallback = void Function(TcpClientStatus status);
 
-// ─── TcpClient StateNotifier ─────────────────────────────────────────────────
+// ─── TcpClient StateNotifier (WebSocket based) ───────────────────────────────
 
 class TcpClient extends StateNotifier<TcpClientState> {
   TcpClient() : super(const TcpClientState());
 
-  Socket? _socket;
+  WebSocketChannel? _channel;
+  StreamSubscription? _subscription;
   final StringBuffer _buffer = StringBuffer();
 
   // Cached credentials for auto-reconnect
@@ -81,9 +80,10 @@ class TcpClient extends StateNotifier<TcpClientState> {
 
   // ─── Connect ─────────────────────────────────────────────────────────────
 
-  /// Initiates a connection to the host at [ip]:[port] and transmits the
-  /// initial HANDSHAKE packet.
-  Future<void> connect(
+  /// Initiates a WebSocket connection to the host at [ip]:[port] and transmits
+  /// the initial HANDSHAKE packet.
+  /// Returns `true` on successful handshake, `false` on failure/timeout.
+  Future<bool> connect(
     String ip,
     int port, {
     required String playerId,
@@ -101,35 +101,47 @@ class TcpClient extends StateNotifier<TcpClientState> {
     _cachedAvatarIcon = avatarIcon;
     _cachedAvatarColor = avatarColor;
 
-    await _attemptConnection();
+    return await _attemptConnection();
   }
 
-  Future<void> _attemptConnection() async {
-    if (_userExplicitlyDisconnected) return;
+  Future<bool> _attemptConnection() async {
+    if (_userExplicitlyDisconnected) return false;
 
     final isInitial = state.status == TcpClientStatus.disconnected;
     _updateStatus(isInitial ? TcpClientStatus.connecting : TcpClientStatus.reconnecting);
 
     try {
       _closeSocket();
-      _socket = await Socket.connect(
-        _cachedIp!,
-        _cachedPort ?? AppConstants.tcpPort,
-        timeout: const Duration(seconds: 4),
-      );
+
+      // Normalize host: strip schemes, path, and port if user passed a full URL
+      var host = _cachedIp!.trim();
+      if (host.startsWith('http://')) host = host.substring(7);
+      if (host.startsWith('https://')) host = host.substring(8);
+      if (host.startsWith('ws://')) host = host.substring(5);
+      if (host.startsWith('wss://')) host = host.substring(6);
+      if (host.contains('/')) host = host.substring(0, host.indexOf('/'));
+      if (host.contains(':')) host = host.substring(0, host.indexOf(':'));
+
+      final port = _cachedPort ?? AppConstants.defaultPort;
+      final wsUri = Uri.parse('ws://$host:$port/ws');
+
+      _channel = WebSocketChannel.connect(wsUri);
+
+      // Wait for WebSocket handshake to be ready with a 4 second timeout
+      await _channel!.ready.timeout(const Duration(seconds: 4));
 
       _buffer.clear();
       _updateStatus(TcpClientStatus.connected);
 
-      // Listen for incoming newline-delimited chunks
-      _socket!.cast<List<int>>().transform(utf8.decoder).listen(
-        _handleDataChunk,
+      // Listen for incoming discrete WebSocket message frames
+      _subscription = _channel!.stream.listen(
+        (data) => _handleData(data.toString()),
         onDone: _onSocketClosed,
-        onError: (e) => _onSocketClosed(),
+        onError: (e) => _onSocketClosed(error: e.toString()),
         cancelOnError: false,
       );
 
-      // Send initial HANDSHAKE immediately upon socket connection
+      // Transmit HANDSHAKE immediately upon WebSocket connection
       final handshakePayload = SyncProtocol.handshake(
         playerId: _cachedPlayerId ?? 'unknown',
         name: _cachedName ?? 'Player',
@@ -141,30 +153,30 @@ class TcpClient extends StateNotifier<TcpClientState> {
 
       // Start 2-second PING heartbeat cycle
       _startPingCycle();
+      return true;
     } catch (e) {
-      _onSocketClosed();
+      _onSocketClosed(error: 'Host unreachable or connection timed out.');
+      return false;
     }
   }
 
   // ─── Incoming Data Processing ─────────────────────────────────────────────
 
-  void _handleDataChunk(String chunk) {
-    _buffer.write(chunk);
-    final raw = _buffer.toString();
-    final lines = raw.split('\n');
-
-    _buffer.clear();
-    // Process all complete lines (ending before the last newline)
-    for (var i = 0; i < lines.length - 1; i++) {
-      final line = lines[i].trim();
-      if (line.isNotEmpty) {
-        _processLine(line);
+  void _handleData(String data) {
+    // In WebSocket frames, data may be a complete JSON string or multiple newline-separated messages
+    if (data.contains('\n')) {
+      final lines = data.split('\n');
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.isNotEmpty) {
+          _processLine(trimmed);
+        }
       }
-    }
-
-    // Keep incomplete segment in buffer
-    if (lines.last.isNotEmpty) {
-      _buffer.write(lines.last);
+    } else {
+      final trimmed = data.trim();
+      if (trimmed.isNotEmpty) {
+        _processLine(trimmed);
+      }
     }
   }
 
@@ -186,10 +198,10 @@ class TcpClient extends StateNotifier<TcpClientState> {
         return;
       }
 
-      // Notify game listener of game messages (start, move, sync, takeback, etc.)
+      // Notify game listener of match events (start, move, sync, takeback, etc.)
       onMessageReceived?.call(map);
     } catch (_) {
-      // Ignore malformed lines
+      // Ignore malformed payloads
     }
   }
 
@@ -201,10 +213,10 @@ class TcpClient extends StateNotifier<TcpClientState> {
       if (state.isConnected) {
         send(SyncProtocol.ping());
 
-        // Watchdog: If no response in 4 seconds, mark connection broken
+        // Watchdog: If no PONG response in 5 seconds, consider connection lost
         _pongWatchdog?.cancel();
-        _pongWatchdog = Timer(const Duration(seconds: 4), () {
-          _onSocketClosed();
+        _pongWatchdog = Timer(const Duration(seconds: 5), () {
+          _onSocketClosed(error: 'Heartbeat timeout');
         });
       }
     });
@@ -212,12 +224,11 @@ class TcpClient extends StateNotifier<TcpClientState> {
 
   // ─── Outgoing ─────────────────────────────────────────────────────────────
 
-  /// Sends a newline-delimited message over the active socket.
+  /// Sends a message over the active WebSocket channel.
   bool send(String message) {
-    if (_socket == null) return false;
+    if (_channel == null) return false;
     try {
-      final formatted = message.endsWith('\n') ? message : '$message\n';
-      _socket!.write(formatted);
+      _channel!.sink.add(message);
       return true;
     } catch (_) {
       _onSocketClosed();
@@ -227,16 +238,15 @@ class TcpClient extends StateNotifier<TcpClientState> {
 
   // ─── Auto-Reconnect & Teardown ────────────────────────────────────────────
 
-  void _onSocketClosed() {
+  void _onSocketClosed({String? error}) {
     _closeSocket();
 
     if (_userExplicitlyDisconnected) {
-      _updateStatus(TcpClientStatus.disconnected);
+      _updateStatus(TcpClientStatus.disconnected, error: error);
       return;
     }
 
-    // If already reconnecting or disconnected, schedule auto-reconnect retry every 1 second
-    _updateStatus(TcpClientStatus.reconnecting);
+    _updateStatus(TcpClientStatus.reconnecting, error: error);
 
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(AppConstants.reconnectInterval, () {
@@ -246,11 +256,12 @@ class TcpClient extends StateNotifier<TcpClientState> {
     });
   }
 
-  void _updateStatus(TcpClientStatus newStatus) {
+  void _updateStatus(TcpClientStatus newStatus, {String? error}) {
     state = state.copyWith(
       status: newStatus,
       hostIp: _cachedIp,
       hostPort: _cachedPort,
+      errorMessage: error,
     );
     onStatusChanged?.call(newStatus);
   }
@@ -260,11 +271,13 @@ class TcpClient extends StateNotifier<TcpClientState> {
     _pingTimer = null;
     _pongWatchdog?.cancel();
     _pongWatchdog = null;
+    _subscription?.cancel();
+    _subscription = null;
 
     try {
-      _socket?.destroy();
+      _channel?.sink.close();
     } catch (_) {}
-    _socket = null;
+    _channel = null;
   }
 
   /// Explicitly disconnects and halts the auto-reconnect loop.

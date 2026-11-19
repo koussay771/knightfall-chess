@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:chess/chess.dart' as chess_pkg;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,6 +94,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   bool _botThinking = false;
   final ChessBot _bot = ChessBot(searchDepth: 3);
+  final Random _botRng = Random();
 
   Future<void> _triggerBotMove() async {
     if (_botThinking || !mounted) return;
@@ -104,10 +106,23 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       return;
     }
 
-    final move = await _bot.findBestMove(board.fen);
+    // Natural bot thinking delay (800ms - 1800ms).
+    // The delay runs concurrently with Isolate minimax computation,
+    // allowing the bot's clock timer to smoothly tick down on screen
+    // without freezing frames or responding on the exact same frame.
+    final thinkDelayMs = 800 + _botRng.nextInt(1000);
+    final delayFuture = Future.delayed(Duration(milliseconds: thinkDelayMs));
+    final calcFuture = _bot.findBestMove(board.fen);
+
+    final results = await Future.wait([calcFuture, delayFuture]);
+    final move = results[0] as Map<String, String>?;
+
     _botThinking = false;
 
     if (move != null && mounted) {
+      final currentBoard = ref.read(chessBoardProvider);
+      if (currentBoard.isGameOver) return;
+
       final notifier = ref.read(chessBoardProvider.notifier);
       final from = move['from']!;
       final to = move['to']!;

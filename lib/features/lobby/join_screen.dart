@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/constants/theme_constants.dart';
 import '../../core/utils/network_utils.dart';
 import '../../network/sync_protocol.dart';
@@ -87,7 +86,7 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
     setState(() => _isConnecting = true);
 
     final client = ref.read(tcpClientProvider.notifier);
-    await client.connect(
+    final success = await client.connect(
       ip,
       port,
       playerId: _myPlayerId,
@@ -100,12 +99,24 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
     setState(() => _isConnecting = false);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Connected to $ip:$port — waiting for Host...'),
-          backgroundColor: AppColors.neonGreenDim,
-        ),
-      );
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connected to $ip:$port via WebSocket — waiting for Host...'),
+            backgroundColor: AppColors.neonGreenDim,
+          ),
+        );
+      } else {
+        final err = ref.read(tcpClientProvider).errorMessage ??
+            'Host unreachable or connection timed out.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connection failed: $err'),
+            backgroundColor: AppColors.loss,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -116,8 +127,10 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
     final avatar = prefs.getString('player_avatar');
     final colorVal = prefs.getInt('player_color');
 
+    setState(() => _isConnecting = true);
+
     final client = ref.read(tcpClientProvider.notifier);
-    await client.connect(
+    final success = await client.connect(
       ip,
       port,
       playerId: _myPlayerId,
@@ -127,10 +140,24 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
       avatarColor: colorVal,
     );
 
+    setState(() => _isConnecting = false);
+
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SpectatorScreen()),
-      );
+      if (success) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const SpectatorScreen()),
+        );
+      } else {
+        final err = ref.read(tcpClientProvider).errorMessage ??
+            'Host unreachable or connection timed out.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to spectate: $err'),
+            backgroundColor: AppColors.loss,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -142,6 +169,15 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
       final info = NetworkUtils.decodeQrPayload(raw);
       if (info != null) {
         _connectToHost(info.ip, info.port);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Invalid QR code address: $raw'),
+              backgroundColor: AppColors.loss,
+            ),
+          );
+        }
       }
     }
   }
@@ -306,15 +342,14 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
                   isConnecting: _isConnecting,
                   onConnect: () {
                     final text = _ipController.text.trim();
-                    final info = NetworkUtils.decodeQrPayload(
-                      text.contains(':') ? text : '$text:${AppConstants.tcpPort}',
-                    );
+                    final info = NetworkUtils.decodeQrPayload(text);
                     if (info != null) {
                       _connectToHost(info.ip, info.port);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                            content: Text('Enter a valid IP:port address')),
+                          content: Text('Enter a valid IP or IP:port (e.g. 192.168.1.5:8080)'),
+                        ),
                       );
                     }
                   },

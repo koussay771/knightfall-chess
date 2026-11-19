@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -163,9 +164,24 @@ class _PlayTabState extends ConsumerState<_PlayTab> {
                     icon: Icons.wifi_tethering,
                     color: AppColors.neonGreen,
                     textColor: AppColors.bg0,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const HostScreen()),
-                    ),
+                    onTap: () {
+                      if (kIsWeb) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Hosting is supported on native Android & Windows apps. '
+                              'In Web browsers, use Join Game to connect to an active host.',
+                            ),
+                            backgroundColor: AppColors.loss,
+                            duration: Duration(seconds: 4),
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const HostScreen()),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 10),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +40,14 @@ class _HostScreenState extends ConsumerState<HostScreen> {
   void initState() {
     super.initState();
     _loadPlayerName();
+    _detectLocalIp();
+  }
+
+  Future<void> _detectLocalIp() async {
+    final ip = await NetworkUtils.getLocalIpAddress();
+    if (mounted && ip != null) {
+      setState(() => _hostIp = ip);
+    }
   }
 
   Future<void> _loadPlayerName() async {
@@ -47,6 +56,20 @@ class _HostScreenState extends ConsumerState<HostScreen> {
   }
 
   Future<void> _startHosting() async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Hosting a match server requires the native Android APK or Windows app. '
+            'In Web browsers, use Join Game to connect to an existing host.',
+          ),
+          backgroundColor: AppColors.loss,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     final name =
         _nameController.text.trim().isEmpty ? 'Host' : _nameController.text.trim();
     final prefs = await SharedPreferences.getInstance();
@@ -55,15 +78,15 @@ class _HostScreenState extends ConsumerState<HostScreen> {
     final ip = await NetworkUtils.getLocalIpAddress() ?? '127.0.0.1';
 
     final server = ref.read(tcpServerProvider.notifier);
-    await server.start();
+    final boundPort = await server.start();
 
     final udp = ref.read(udpDiscoveryProvider.notifier);
-    await udp.startBroadcast(name, _selectedMode);
+    await udp.startBroadcast(name, _selectedMode, port: boundPort);
 
     setState(() {
       _hostingState = _HostingState.waiting;
       _hostIp = ip;
-      _hostPort = AppConstants.tcpPort;
+      _hostPort = boundPort;
     });
   }
 
@@ -145,6 +168,31 @@ class _HostScreenState extends ConsumerState<HostScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (kIsWeb) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.goldFaint,
+                borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                border: Border.all(color: AppColors.gold.withValues(alpha: 0.6)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.gold, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Hosting is only supported on native Android & Windows apps. '
+                      'In web browsers, please use Join Match Hub to connect to a host.',
+                      style: TextStyle(color: AppColors.gold, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           // Name field
           const _Label('Your Name'),
           const SizedBox(height: 6),
@@ -257,7 +305,8 @@ class _HostScreenState extends ConsumerState<HostScreen> {
 
   // ── Waiting Room ──────────────────────────────────────────────────────────
   Widget _buildWaiting(BuildContext context) {
-    final qrData = '$_hostIp:$_hostPort';
+    final qrUrl = NetworkUtils.encodeQrUrl(_hostIp, _hostPort);
+    final qrData = qrUrl;
 
     return SingleChildScrollView(
       key: const ValueKey('waiting'),
@@ -284,7 +333,7 @@ class _HostScreenState extends ConsumerState<HostScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Hosting Active',
+                        'Hosting Active (WebSockets)',
                         style: TextStyle(
                           color: AppColors.neonGreen,
                           fontWeight: FontWeight.w700,
@@ -292,7 +341,7 @@ class _HostScreenState extends ConsumerState<HostScreen> {
                         ),
                       ),
                       Text(
-                        '$_hostIp:$_hostPort',
+                        '$_hostIp:$_hostPort  •  $qrUrl',
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 11,
@@ -301,13 +350,13 @@ class _HostScreenState extends ConsumerState<HostScreen> {
                     ],
                   ),
                 ),
-                // Copy IP button
+                // Copy URL/IP button
                 GestureDetector(
                   onTap: () {
-                    Clipboard.setData(ClipboardData(text: qrData));
+                    Clipboard.setData(ClipboardData(text: qrUrl));
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('IP:Port copied to clipboard'),
+                        content: Text('Host URL copied to clipboard!'),
                         duration: Duration(seconds: 1),
                       ),
                     );
@@ -364,7 +413,7 @@ class _HostScreenState extends ConsumerState<HostScreen> {
           const SizedBox(height: 6),
           const Center(
             child: Text(
-              'Share QR code to join instantly',
+              'Scan with Safari, Chrome, or in-app to join instantly',
               style: TextStyle(color: AppColors.textDim, fontSize: 11),
             ),
           ),

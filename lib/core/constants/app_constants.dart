@@ -1,5 +1,6 @@
 class AppConstants {
-  static const int tcpPort = 4545;
+  static const int defaultPort = 8080;
+  static const int tcpPort = 8080;
   static const int udpPort = 4546;
   static const String broadcastAddress = '255.255.255.255';
   static const Duration pingInterval = Duration(seconds: 2);

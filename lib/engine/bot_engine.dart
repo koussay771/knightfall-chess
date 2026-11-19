@@ -40,14 +40,9 @@ class ChessBot {
     if (fen == initialFen || (chess.history.isNotEmpty && chess.history.length <= 2)) {
       final bookMove = _getOpeningBookMove(chess, legalMoves, _rng);
       if (bookMove != null) {
-        // Add realistic human think time asynchronously
-        await Future.delayed(
-            Duration(milliseconds: 300 + _rng.nextInt(200)));
         return bookMove;
       }
     }
-
-    final stopwatch = Stopwatch()..start();
 
     // Offload Minimax / Alpha-Beta calculation to a background Isolate
     // so the UI frame rate (60fps) and game clocks never freeze.
@@ -55,13 +50,6 @@ class ChessBot {
       'fen': fen,
       'depth': searchDepth,
     });
-
-    // Ensure human thinking delay without blocking the UI thread
-    stopwatch.stop();
-    final elapsed = stopwatch.elapsedMilliseconds;
-    if (elapsed < 500) {
-      await Future.delayed(Duration(milliseconds: 500 - elapsed));
-    }
 
     return bestMove;
   }
