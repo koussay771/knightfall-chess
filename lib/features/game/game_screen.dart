@@ -9,6 +9,7 @@ import '../../core/constants/theme_constants.dart';
 import '../../core/models/match_record.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/utils/database_helper.dart';
+import '../../core/utils/network_utils.dart';
 import '../../core/utils/sound_manager.dart';
 import '../../engine/bot_engine.dart';
 import '../../engine/chess_board_state.dart';
@@ -33,6 +34,7 @@ class GameScreen extends ConsumerStatefulWidget {
   final String gameMode; // 'standard' | 'koth' | 'dare'
   final String? dareText;
   final bool isBot;
+  final bool isPassAndPlay;
 
   const GameScreen({
     super.key,
@@ -46,6 +48,7 @@ class GameScreen extends ConsumerStatefulWidget {
     this.gameMode = 'standard',
     this.dareText,
     this.isBot = false,
+    this.isPassAndPlay = false,
   });
 
   @override
@@ -66,11 +69,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   String? _premoveStartSquare;
   final ScrollController _moveScrollController = ScrollController();
 
+  // ── History navigation ────────────────────────────────────────────────────
+  int? _viewingPlyIndex; // null = live/latest
+  String _networkStatusText = 'LOCAL P2P';
+
   @override
   void initState() {
     super.initState();
     _whiteTimeMs = widget.initialTimeSeconds * 1000;
     _blackTimeMs = widget.initialTimeSeconds * 1000;
+    _detectLocalIp();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(chessBoardProvider.notifier).reset(
@@ -81,7 +89,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     : GameMode.standard,
           );
       ref.read(premoveProvider.notifier).clearPremove();
-      if (!widget.isBot) {
+      if (!widget.isBot && !widget.isPassAndPlay) {
         _setupNetworkListeners();
       }
       _startClockTimer();
@@ -90,6 +98,21 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         _triggerBotMove();
       }
     });
+  }
+
+  Future<void> _detectLocalIp() async {
+    if (widget.isPassAndPlay) {
+      if (mounted) setState(() => _networkStatusText = 'PASS & PLAY');
+      return;
+    }
+    if (widget.isBot) {
+      if (mounted) setState(() => _networkStatusText = 'OFFLINE BOT (1500)');
+      return;
+    }
+    final ip = await NetworkUtils.getLocalIpAddress();
+    if (mounted && ip != null) {
+      setState(() => _networkStatusText = 'HOTSPOT: $ip');
+    }
   }
 
   bool _botThinking = false;
@@ -130,6 +153,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
       final success = notifier.makeMove(from, to, promotion: promo);
       if (success) {
+        setState(() => _viewingPlyIndex = null);
         if (_fxEnabled) {
           SoundManager.instance.playMove();
         }
@@ -155,6 +179,22 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         );
       }
     });
+  }
+
+  /// Reconstruct FEN at a given 0-based ply index by replaying moves.
+  String? _getFenAtPly(int plyIndex) {
+    final history = ref.read(chessBoardProvider).moveHistory;
+    if (plyIndex < 0 || plyIndex >= history.length) return null;
+    final chess = chess_pkg.Chess();
+    for (int i = 0; i <= plyIndex; i++) {
+      final from = history[i]['from'] as String? ?? '';
+      final to = history[i]['to'] as String? ?? '';
+      final promo = history[i]['promotion'] as String?;
+      final moveMap = <String, String>{'from': from, 'to': to};
+      if (promo != null) moveMap['promotion'] = promo;
+      chess.move(moveMap);
+    }
+    return chess.fen;
   }
 
   // ─── Networking Listeners ──────────────────────────────────────────────────
@@ -203,6 +243,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (_fxEnabled) {
         SoundManager.instance.playMove();
       }
+      setState(() => _viewingPlyIndex = null);
       _scrollToLatestMove();
       _checkPremoveTrigger();
 
@@ -343,18 +384,35 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final board = ref.read(chessBoardProvider);
     if (board.isGameOver) return;
 
-    final isMyTurn = board.currentTurn == widget.myColor;
+    if (_viewingPlyIndex != null) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Board input locked in preview mode. Tap "Return to Live" to move.'),
+          duration: Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final activeColor =
+        widget.isPassAndPlay ? board.currentTurn : widget.myColor;
+    final isMyTurn = widget.isPassAndPlay
+        ? true
+        : (board.currentTurn == widget.myColor);
 
     if (isMyTurn) {
       final selected = board.selectedSquare;
 
-      // Determine if the tapped square holds one of my own pieces.
+      // Determine if the tapped square holds one of active player's own pieces.
       final chess = chess_pkg.Chess.fromFEN(board.fen);
       final pieceOnSquare = chess.get(square);
-      final myColorEnum =
-          widget.myColor == 'white' ? chess_pkg.Color.WHITE : chess_pkg.Color.BLACK;
+      final activeColorEnum = activeColor == 'white'
+          ? chess_pkg.Color.WHITE
+          : chess_pkg.Color.BLACK;
       final isFriendly =
-          pieceOnSquare != null && pieceOnSquare.color == myColorEnum;
+          pieceOnSquare != null && pieceOnSquare.color == activeColorEnum;
 
       if (selected == null) {
         // Nothing selected: start a new selection.
@@ -387,8 +445,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Future<void> _handlePieceDropped(String from, String to) async {
     final board = ref.read(chessBoardProvider);
     if (board.isGameOver) return;
+    if (_viewingPlyIndex != null) return;
 
-    final isMyTurn = board.currentTurn == widget.myColor;
+    final isMyTurn = widget.isPassAndPlay
+        ? true
+        : (board.currentTurn == widget.myColor);
     if (isMyTurn) {
       await _attemptPlayerMove(from, to);
     } else {
@@ -402,12 +463,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Future<void> _attemptPlayerMove(String from, String to,
       {String? promoOverride}) async {
     final board = ref.read(chessBoardProvider);
+    final activeColor =
+        widget.isPassAndPlay ? board.currentTurn : widget.myColor;
     final isPawn = _isPawn(board.fen, from);
-    final isPromotion = isPawn && (to.endsWith('8') || to.endsWith('1'));
+    final isPromotion = isPawn && _isPromotionRank(activeColor, to);
 
     String? promoPiece = promoOverride;
     if (isPromotion && promoPiece == null) {
-      promoPiece = await _showPromotionModal(widget.myColor == 'white');
+      promoPiece = await _showPromotionModal(activeColor == 'white');
       if (promoPiece == null) return;
     }
 
@@ -417,7 +480,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         notifier.makeMove(from, normalizedTo, promotion: promoPiece);
 
     if (success) {
-      if (widget.myColor == 'white') {
+      if (activeColor == 'white') {
         _whiteTimeMs += widget.incrementSeconds * 1000;
       } else {
         _blackTimeMs += widget.incrementSeconds * 1000;
@@ -426,11 +489,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (_fxEnabled) {
         SoundManager.instance.playMove();
       }
+      setState(() => _viewingPlyIndex = null);
       _scrollToLatestMove();
+
+      setState(() {
+        _viewingPlyIndex = null;
+        if (widget.isPassAndPlay) {
+          _manualFlip = !_manualFlip;
+        }
+      });
 
       final updatedBoard = ref.read(chessBoardProvider);
 
-      if (!widget.isBot) {
+      if (!widget.isBot && !widget.isPassAndPlay) {
         final movePacket = SyncProtocol.move(
           from: from,
           to: normalizedTo,
@@ -440,7 +511,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           blackTimeMs: _blackTimeMs,
         );
         _sendNetworkMessage(movePacket);
-      } else {
+      } else if (widget.isBot) {
         if (!updatedBoard.isGameOver) {
           _triggerBotMove();
         }
@@ -458,7 +529,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         if (_fxEnabled) {
           SoundManager.instance.playIllegalMove();
         }
-        final kingSq = MoveValidator.findKingSquare(chess, widget.myColor);
+        final kingSq = MoveValidator.findKingSquare(chess, activeColor);
         setState(() {
           _shakeTrigger++;
           _flashKingSquare = kingSq;
@@ -519,30 +590,27 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final to = premoveState.to!;
 
     final isPawn = _isPawn(board.fen, from);
-    final promo = isPawn && (to.endsWith('8') || to.endsWith('1')) ? 'q' : null;
+    final promo =
+        isPawn && _isPromotionRank(board.currentTurn, to) ? 'q' : null;
 
     ref.read(premoveProvider.notifier).clearPremove();
     _attemptPlayerMove(from, to, promoOverride: promo);
   }
 
   bool _isPawn(String fen, String square) {
-    final col = square.codeUnitAt(0) - 'a'.codeUnitAt(0);
-    final row = 8 - int.parse(square[1]);
-    final placement = fen.split(' ').first;
-    final rows = placement.split('/');
-    if (row < 0 || row >= rows.length) return false;
-
-    var c = 0;
-    for (var i = 0; i < rows[row].length; i++) {
-      final char = rows[row][i];
-      final empty = int.tryParse(char);
-      if (empty != null) {
-        c += empty;
-      } else {
-        if (c == col) return char.toLowerCase() == 'p';
-        c++;
-      }
+    try {
+      final chess = chess_pkg.Chess.fromFEN(fen);
+      return chess.get(square)?.type == chess_pkg.PieceType.PAWN;
+    } catch (_) {
+      return false;
     }
+  }
+
+  bool _isPromotionRank(String playerColor, String toSquare) {
+    if (toSquare.length < 2) return false;
+    final rank = toSquare[1];
+    if (playerColor == 'white') return rank == '8';
+    if (playerColor == 'black') return rank == '1';
     return false;
   }
 
@@ -595,6 +663,47 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // ─── Actions: Takeback, Draw, Resign ───────────────────────────────────────
 
+  void _handleTakebackButton() {
+    if (widget.isPassAndPlay) {
+      final notifier = ref.read(chessBoardProvider.notifier);
+      final reverted = notifier.undoMoves(1);
+      if (reverted != null) {
+        setState(() {
+          _viewingPlyIndex = null;
+          _manualFlip = !_manualFlip;
+        });
+        if (_fxEnabled) SoundManager.instance.playMove();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Move taken back!'),
+            backgroundColor: Color(0xFF00FF88),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+    if (widget.isBot) {
+      final notifier = ref.read(chessBoardProvider.notifier);
+      final reverted = notifier.undoMoves(2);
+      if (reverted != null) {
+        setState(() => _viewingPlyIndex = null);
+        if (_fxEnabled) SoundManager.instance.playMove();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Takeback: Undid last turn!'),
+            backgroundColor: Color(0xFF00FF88),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+    _sendTakebackRequest();
+  }
+
   void _sendTakebackRequest() {
     if (_takebackPending) return;
     _takebackPending = true;
@@ -616,11 +725,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       requesterName: widget.opponentName,
     ).then((accepted) {
       final isAccepted = accepted ?? false;
-      final board = ref.read(chessBoardProvider);
 
       String? revertedFen;
       if (isAccepted) {
-        revertedFen = board.fen;
+        final notifier = ref.read(chessBoardProvider.notifier);
+        revertedFen = notifier.undoMoves(1);
+        setState(() => _viewingPlyIndex = null);
+        if (_fxEnabled) SoundManager.instance.playMove();
       }
 
       final res = SyncProtocol.takebackRes(
@@ -854,16 +965,36 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     final isFlipped =
         _manualFlip ? (widget.myColor == 'white') : (widget.myColor == 'black');
-    final isMyTurn = board.currentTurn == widget.myColor;
+    final activeIsWhite = board.currentTurn == 'white';
+    final isMyTurn = widget.isPassAndPlay
+        ? true
+        : (board.currentTurn == widget.myColor);
 
-    final opponentTimeMs =
-        widget.myColor == 'black' ? _whiteTimeMs : _blackTimeMs;
-    final myTimeMs = widget.myColor == 'black' ? _blackTimeMs : _whiteTimeMs;
+    final opponentTimeMs = widget.isPassAndPlay
+        ? (activeIsWhite ? _blackTimeMs : _whiteTimeMs)
+        : (widget.myColor == 'black' ? _whiteTimeMs : _blackTimeMs);
+    final myTimeMs = widget.isPassAndPlay
+        ? (activeIsWhite ? _whiteTimeMs : _blackTimeMs)
+        : (widget.myColor == 'black' ? _blackTimeMs : _whiteTimeMs);
 
     final myAdvantage = widget.myColor == 'white'
         ? board.whiteMaterialAdvantage
         : -board.whiteMaterialAdvantage;
     final opponentAdvantage = -myAdvantage;
+
+    final displayedFen = _viewingPlyIndex != null
+        ? (_getFenAtPly(_viewingPlyIndex!) ?? board.fen)
+        : board.fen;
+    final displayedMove = _viewingPlyIndex != null &&
+            _viewingPlyIndex! < board.moveHistory.length
+        ? board.moveHistory[_viewingPlyIndex!]
+        : null;
+    final displayedFrom = displayedMove != null
+        ? displayedMove['from'] as String?
+        : board.lastMoveFrom;
+    final displayedTo = displayedMove != null
+        ? displayedMove['to'] as String?
+        : board.lastMoveTo;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0E141C),
@@ -882,7 +1013,70 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 isActive: !isMyTurn,
                 advantage: opponentAdvantage,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
+
+              // ── Historical Preview Indicator Banner ──
+              if (_viewingPlyIndex != null) ...[
+                Container(
+                  height: 28,
+                  margin: const EdgeInsets.only(bottom: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E232B),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: const Color(0xFFFFDB3C), width: 1),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.history,
+                              size: 14, color: Color(0xFFFFDB3C)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'HISTORICAL PREVIEW (${_viewingPlyIndex! + 1}/${board.moveHistory.length})',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFFFDB3C),
+                            ),
+                          ),
+                        ],
+                      ),
+                      InkWell(
+                        onTap: () => setState(() => _viewingPlyIndex = null),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00FF88),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.play_arrow,
+                                  size: 12, color: Color(0xFF003919)),
+                              SizedBox(width: 2),
+                              Text(
+                                'Return to Live',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF003919),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               // ── 3. Precision 8x8 Chess Arena Frame with Evaluation Bar ──
               Expanded(
@@ -927,13 +1121,21 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                           // 8x8 Board (No green arc arrow)
                           Expanded(
                             child: BoardWidget(
-                              fen: board.fen,
-                              selectedSquare: board.selectedSquare,
-                              legalTargets: board.legalTargets,
-                              lastMoveFrom: board.lastMoveFrom,
-                              lastMoveTo: board.lastMoveTo,
-                              premoveFrom: premove.from,
-                              premoveTo: premove.to,
+                              fen: displayedFen,
+                              selectedSquare: _viewingPlyIndex != null
+                                  ? null
+                                  : board.selectedSquare,
+                              legalTargets: _viewingPlyIndex != null
+                                  ? const []
+                                  : board.legalTargets,
+                              lastMoveFrom: displayedFrom,
+                              lastMoveTo: displayedTo,
+                              premoveFrom: _viewingPlyIndex != null
+                                  ? null
+                                  : premove.from,
+                              premoveTo: _viewingPlyIndex != null
+                                  ? null
+                                  : premove.to,
                               checkSquare:
                                   _flashKingSquare ?? board.checkSquare,
                               flipped: isFlipped,
@@ -1033,9 +1235,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         ),
                       ),
                       const SizedBox(width: 5),
-                      const Text(
-                        'LAN: 192.168.1.45',
-                        style: TextStyle(
+                      Text(
+                        _networkStatusText,
+                        style: const TextStyle(
                           fontSize: 9.5,
                           fontFamily: 'monospace',
                           fontWeight: FontWeight.w600,
@@ -1123,7 +1325,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       Row(
                         children: [
                           Text(
-                            widget.opponentName,
+                            widget.isPassAndPlay
+                                ? (ref.read(chessBoardProvider).currentTurn ==
+                                        'white'
+                                    ? 'Black (Player 2)'
+                                    : 'White (Player 1)')
+                                : widget.opponentName,
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -1138,9 +1345,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                               color: const Color(0xFF2F353E),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text(
-                              '1790',
-                              style: TextStyle(
+                            child: Text(
+                              widget.isPassAndPlay ? 'OFFLINE' : '1790',
+                              style: const TextStyle(
                                 fontSize: 9.5,
                                 fontFamily: 'monospace',
                                 fontWeight: FontWeight.bold,
@@ -1151,12 +1358,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         ],
                       ),
                       const SizedBox(height: 2),
-                      const Row(
+                      Row(
                         children: [
-                          Text('● ', style: TextStyle(color: Color(0xFF00FF88), fontSize: 8)),
+                          const Text('● ',
+                              style: TextStyle(
+                                  color: Color(0xFF00FF88), fontSize: 8)),
                           Text(
-                            '12ms (Direct LAN)',
-                            style: TextStyle(
+                            widget.isPassAndPlay
+                                ? 'Single Device (Pass & Play)'
+                                : '12ms (Direct LAN)',
+                            style: const TextStyle(
                               fontSize: 9.5,
                               color: Color(0xFF00E479),
                               fontWeight: FontWeight.w500,
@@ -1282,9 +1493,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Text(
-                    'YOUR TURN',
-                    style: TextStyle(
+                  Text(
+                    widget.isPassAndPlay
+                        ? '${ref.read(chessBoardProvider).currentTurn.toUpperCase()}\'S TURN'
+                        : 'YOUR TURN',
+                    style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.8,
@@ -1371,9 +1584,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                           Row(
                             children: [
                               Text(
-                                widget.myPlayerName.isEmpty
-                                    ? 'Grandmaster_X'
-                                    : widget.myPlayerName,
+                                widget.isPassAndPlay
+                                    ? (ref.read(chessBoardProvider).currentTurn ==
+                                            'white'
+                                        ? 'White (Player 1)'
+                                        : 'Black (Player 2)')
+                                    : (widget.myPlayerName.isEmpty
+                                        ? 'Grandmaster_X'
+                                        : widget.myPlayerName),
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
@@ -1388,9 +1606,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                   color: const Color(0x3300FF88),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text(
-                                  '1845',
-                                  style: TextStyle(
+                                child: Text(
+                                  widget.isPassAndPlay ? 'OFFLINE' : '1845',
+                                  style: const TextStyle(
                                     fontSize: 9.5,
                                     fontFamily: 'monospace',
                                     fontWeight: FontWeight.bold,
@@ -1401,9 +1619,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                             ],
                           ),
                           const SizedBox(height: 2),
-                          const Text(
-                            'White • Rapid Tournament',
-                            style: TextStyle(
+                          Text(
+                            widget.isPassAndPlay
+                                ? '${ref.read(chessBoardProvider).currentTurn.toUpperCase()} • Pass & Play Mode'
+                                : 'White • Rapid Tournament',
+                            style: const TextStyle(
                               fontSize: 9.5,
                               color: Color(0xFFB9CBB9),
                             ),
@@ -1454,7 +1674,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
-  // ── Action Controls: [ Flip ], [ Offer Draw ], [ Resign ], [ Arbiter ] ────
+  // ── Action Controls: [ Flip ], [ Takeback ], [ Offer Draw ], [ Resign ] ────
   Widget _buildActionControls() {
     return SizedBox(
       height: 44,
@@ -1466,6 +1686,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               label: 'Flip',
               iconColor: const Color(0xFFB9CBB9),
               onTap: () => setState(() => _manualFlip = !_manualFlip),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _TacticalButton(
+              icon: Icons.replay,
+              label: 'Takeback',
+              iconColor: const Color(0xFF00FF88),
+              textColor: const Color(0xFF00FF88),
+              onTap: _handleTakebackButton,
             ),
           ),
           const SizedBox(width: 8),
@@ -1485,16 +1715,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               iconColor: const Color(0xFFFFB4AB),
               textColor: const Color(0xFFFFB4AB),
               onTap: _confirmResign,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _TacticalButton(
-              icon: Icons.gavel,
-              label: 'Arbiter',
-              iconColor: const Color(0xFF00E479),
-              textColor: const Color(0xFF00E479),
-              onTap: _sendTakebackRequest,
             ),
           ),
         ],
@@ -1529,11 +1749,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     itemCount: (moveHistory.length + 1) ~/ 2,
                     itemBuilder: (context, i) {
                       final moveNum = i + 1;
-                      final whiteSan = moveHistory[i * 2]['san'] as String;
-                      final blackSan = (i * 2 + 1 < moveHistory.length)
-                          ? moveHistory[i * 2 + 1]['san'] as String
+                      final whitePlyIndex = i * 2;
+                      final blackPlyIndex = whitePlyIndex + 1;
+                      final whiteSan = moveHistory[whitePlyIndex]['san'] as String;
+                      final blackSan = (blackPlyIndex < moveHistory.length)
+                          ? moveHistory[blackPlyIndex]['san'] as String
                           : null;
-                      final isLatest = (i * 2 + 1 >= moveHistory.length);
+                      final isWhiteViewing = _viewingPlyIndex == whitePlyIndex;
+                      final isBlackViewing = _viewingPlyIndex == blackPlyIndex;
+                      final isLatestWhite =
+                          _viewingPlyIndex == null && blackSan == null;
+                      final isLatestBlack = _viewingPlyIndex == null &&
+                          (blackPlyIndex == moveHistory.length - 1);
 
                       return Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1547,52 +1774,77 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                               color: Color(0xFFB9CBB9),
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: (isLatest && blackSan == null)
-                                  ? const Color(0xFF242A33)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              whiteSan,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontFamily: 'monospace',
-                                fontWeight: (isLatest && blackSan == null)
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: (isLatest && blackSan == null)
-                                    ? const Color(0xFFFFDB3C)
-                                    : const Color(0xFFDDE3EE),
+                          GestureDetector(
+                            onTap: () =>
+                                setState(() => _viewingPlyIndex = whitePlyIndex),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: isWhiteViewing
+                                    ? const Color(0xFF242A33)
+                                    : (isLatestWhite
+                                        ? const Color(0xFF1E2631)
+                                        : Colors.transparent),
+                                border: isWhiteViewing
+                                    ? Border.all(
+                                        color: const Color(0xFFFFDB3C),
+                                        width: 1)
+                                    : null,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                whiteSan,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontFamily: 'monospace',
+                                  fontWeight: (isWhiteViewing || isLatestWhite)
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: isWhiteViewing
+                                      ? const Color(0xFFFFDB3C)
+                                      : (isLatestWhite
+                                          ? const Color(0xFF00FF88)
+                                          : const Color(0xFFDDE3EE)),
+                                ),
                               ),
                             ),
                           ),
                           if (blackSan != null) ...[
                             const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: (i * 2 + 1 == moveHistory.length - 1)
-                                    ? const Color(0xFF242A33)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                blackSan,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontFamily: 'monospace',
-                                  fontWeight:
-                                      (i * 2 + 1 == moveHistory.length - 1)
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                  color: (i * 2 + 1 == moveHistory.length - 1)
-                                      ? const Color(0xFFFFDB3C)
-                                      : const Color(0xFFDDE3EE),
+                            GestureDetector(
+                              onTap: () => setState(
+                                  () => _viewingPlyIndex = blackPlyIndex),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: isBlackViewing
+                                      ? const Color(0xFF242A33)
+                                      : (isLatestBlack
+                                          ? const Color(0xFF1E2631)
+                                          : Colors.transparent),
+                                  border: isBlackViewing
+                                      ? Border.all(
+                                          color: const Color(0xFFFFDB3C),
+                                          width: 1)
+                                      : null,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  blackSan,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    fontWeight: (isBlackViewing || isLatestBlack)
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isBlackViewing
+                                        ? const Color(0xFFFFDB3C)
+                                        : (isLatestBlack
+                                            ? const Color(0xFF00FF88)
+                                            : const Color(0xFFDDE3EE)),
+                                  ),
                                 ),
                               ),
                             ),
@@ -1603,19 +1855,46 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     },
                   ),
           ),
-          const Row(
+          // ── Interactive Navigation Controls: |< < > >| ──
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.history, size: 16, color: Color(0xFFB9CBB9)),
-              SizedBox(width: 3),
-              Text(
-                'PGN',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFB9CBB9),
-                ),
+              _HistoryNavBtn(
+                icon: Icons.first_page,
+                tooltip: 'First move (|<)',
+                enabled: moveHistory.isNotEmpty && _viewingPlyIndex != 0,
+                onTap: () => setState(() => _viewingPlyIndex = 0),
+              ),
+              _HistoryNavBtn(
+                icon: Icons.chevron_left,
+                tooltip: 'Previous move (<)',
+                enabled: moveHistory.isNotEmpty &&
+                    (_viewingPlyIndex ?? moveHistory.length) > 0,
+                onTap: () {
+                  final cur = _viewingPlyIndex ?? moveHistory.length;
+                  final prev = (cur - 1).clamp(0, moveHistory.length - 1);
+                  setState(() => _viewingPlyIndex = prev);
+                },
+              ),
+              _HistoryNavBtn(
+                icon: Icons.chevron_right,
+                tooltip: 'Next move (>)',
+                enabled: _viewingPlyIndex != null,
+                onTap: () {
+                  if (_viewingPlyIndex == null) return;
+                  if (_viewingPlyIndex! < moveHistory.length - 1) {
+                    setState(() => _viewingPlyIndex = _viewingPlyIndex! + 1);
+                  } else {
+                    setState(() => _viewingPlyIndex = null);
+                  }
+                },
+              ),
+              _HistoryNavBtn(
+                icon: Icons.last_page,
+                tooltip: 'Latest / Live (>|)',
+                enabled: _viewingPlyIndex != null,
+                isLive: _viewingPlyIndex == null,
+                onTap: () => setState(() => _viewingPlyIndex = null),
               ),
             ],
           ),
@@ -1780,6 +2059,40 @@ class _NavIcon extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryNavBtn extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final bool enabled;
+  final bool isLive;
+  final VoidCallback onTap;
+
+  const _HistoryNavBtn({
+    required this.icon,
+    required this.tooltip,
+    required this.enabled,
+    this.isLive = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled
+        ? (isLive ? const Color(0xFF00FF88) : const Color(0xFFDDE3EE))
+        : const Color(0xFF454B54);
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+          child: Icon(icon, size: 18, color: color),
         ),
       ),
     );

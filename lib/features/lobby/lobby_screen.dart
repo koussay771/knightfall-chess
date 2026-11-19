@@ -107,6 +107,12 @@ class _PlayTabState extends ConsumerState<_PlayTab> {
       'label': 'Dare & Bet Gauntlet',
       'desc': 'Loser faces the dare',
     },
+    {
+      'key': AppConstants.modePassAndPlay,
+      'icon': Icons.phone_android,
+      'label': 'Pass & Play (Same Phone)',
+      'desc': 'Instant offline duel on single device',
+    },
   ];
 
   @override
@@ -156,71 +162,151 @@ class _PlayTabState extends ConsumerState<_PlayTab> {
             const Spacer(),
 
             // ── Action Buttons ──
-            Row(
-              children: [
-                Expanded(
-                  child: _ActionButton(
-                    label: 'Host Game',
-                    icon: Icons.wifi_tethering,
-                    color: AppColors.neonGreen,
-                    textColor: AppColors.bg0,
-                    onTap: () {
-                      if (kIsWeb) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Hosting is supported on native Android & Windows apps. '
-                              'In Web browsers, use Join Game to connect to an active host.',
-                            ),
-                            backgroundColor: AppColors.loss,
-                            duration: Duration(seconds: 4),
-                          ),
-                        );
-                        return;
-                      }
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const HostScreen()),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _ActionButton(
-                    label: 'Join Game',
-                    icon: Icons.search,
-                    color: AppColors.gold,
-                    textColor: AppColors.bg0,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const JoinScreen()),
+            if (_selectedMode == AppConstants.modePassAndPlay) ...[
+              _ActionButton(
+                label: 'Start Pass & Play Match',
+                icon: Icons.phone_android,
+                color: AppColors.neonGreen,
+                textColor: AppColors.bg0,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => GameScreen(
+                      isHost: true,
+                      isBot: false,
+                      isPassAndPlay: true,
+                      myPlayerId: const Uuid().v4(),
+                      myPlayerName: profile.name,
+                      opponentName: 'Player 2',
+                      myColor: 'white',
+                      initialTimeSeconds:
+                          AppConstants.timeControls[_selectedTimeIndex],
+                      gameMode: 'standard',
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _ActionButton(
-              label: 'Play vs Bot (1500 ELO)',
-              icon: Icons.smart_toy_outlined,
-              color: AppColors.bg3,
-              textColor: AppColors.textPrimary,
-              borderColor: AppColors.borderBright,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => GameScreen(
-                    isHost: true,
-                    isBot: true,
-                    myPlayerId: const Uuid().v4(),
-                    myPlayerName: profile.name,
-                    opponentName: 'Chess Bot (1500)',
-                    myColor: 'white',
-                    initialTimeSeconds:
-                        AppConstants.timeControls[_selectedTimeIndex],
-                    gameMode: _selectedMode,
+              ),
+              const SizedBox(height: 8),
+              _ActionButton(
+                label: 'Play vs Bot (1500 ELO)',
+                icon: Icons.smart_toy_outlined,
+                color: AppColors.bg3,
+                textColor: AppColors.textPrimary,
+                borderColor: AppColors.borderBright,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => GameScreen(
+                      isHost: true,
+                      isBot: true,
+                      myPlayerId: const Uuid().v4(),
+                      myPlayerName: profile.name,
+                      opponentName: 'Chess Bot (1500)',
+                      myColor: 'white',
+                      initialTimeSeconds:
+                          AppConstants.timeControls[_selectedTimeIndex],
+                      gameMode: 'standard',
+                    ),
                   ),
                 ),
               ),
-            ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionButton(
+                      label: 'Host Game',
+                      icon: Icons.wifi_tethering,
+                      color: AppColors.neonGreen,
+                      textColor: AppColors.bg0,
+                      onTap: () {
+                        if (kIsWeb) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Hosting is supported on native Android & Windows apps. '
+                                'In Web browsers, use Join Game to connect to an active host.',
+                              ),
+                              backgroundColor: AppColors.loss,
+                              duration: Duration(seconds: 4),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const HostScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _ActionButton(
+                      label: 'Join Game',
+                      icon: Icons.search,
+                      color: AppColors.gold,
+                      textColor: AppColors.bg0,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const JoinScreen()),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionButton(
+                      label: 'Vs Bot',
+                      icon: Icons.smart_toy_outlined,
+                      color: AppColors.bg3,
+                      textColor: AppColors.textPrimary,
+                      borderColor: AppColors.borderBright,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => GameScreen(
+                            isHost: true,
+                            isBot: true,
+                            myPlayerId: const Uuid().v4(),
+                            myPlayerName: profile.name,
+                            opponentName: 'Chess Bot (1500)',
+                            myColor: 'white',
+                            initialTimeSeconds:
+                                AppConstants.timeControls[_selectedTimeIndex],
+                            gameMode: _selectedMode,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _ActionButton(
+                      label: 'Pass & Play',
+                      icon: Icons.phone_android,
+                      color: AppColors.bg3,
+                      textColor: AppColors.textPrimary,
+                      borderColor: AppColors.borderBright,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => GameScreen(
+                            isHost: true,
+                            isBot: false,
+                            isPassAndPlay: true,
+                            myPlayerId: const Uuid().v4(),
+                            myPlayerName: profile.name,
+                            opponentName: 'Player 2',
+                            myColor: 'white',
+                            initialTimeSeconds:
+                                AppConstants.timeControls[_selectedTimeIndex],
+                            gameMode: 'standard',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 4),
           ],
         ),

@@ -186,6 +186,11 @@ class TcpServer extends StateNotifier<TcpServerState> {
   // ─── Static Web Serving & Fallback ───────────────────────────────────────
 
   Future<void> _serveStaticOrFallback(HttpRequest request) async {
+    request.response.headers.set(
+        'Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    request.response.headers.set('Pragma', 'no-cache');
+    request.response.headers.set('Expires', '0');
+
     final uriPath = request.uri.path == '/' ? '/index.html' : request.uri.path;
 
     // 1. Check if Flutter Web bundle (build/web) exists on disk
@@ -657,6 +662,7 @@ class TcpServer extends StateNotifier<TcpServerState> {
       <!-- Action Row -->
       <div class="btn-row">
         <button class="btn" onclick="flipBoard()">⇄ Flip</button>
+        <button class="btn" onclick="requestTakeback()" style="color: #00FF88;">↺ Takeback</button>
         <button class="btn" onclick="offerDraw()">🤝 Draw</button>
         <button class="btn" style="color: #FF6B81;" onclick="resignGame()">⚐ Resign</button>
       </div>
@@ -860,6 +866,32 @@ class TcpServer extends StateNotifier<TcpServerState> {
         alert('Match Ended: ' + (msg.reason || 'Game Concluded') + (msg.winnerId ? ' (Winner: ' + msg.winnerId + ')' : ''));
         return;
       }
+
+      // 7. Takeback Request
+      if (type === 'takeback_req' || type === 'takebackreq' || type === 'takeback_request') {
+        const accept = confirm('Opponent requested a move takeback. Grant it?');
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'takeback_res',
+            accepted: accept
+          }));
+        }
+        return;
+      }
+
+      // 8. Takeback Response
+      if (type === 'takeback_res' || type === 'takebackres' || type === 'takeback_response') {
+        if (msg.accepted && msg.revertedFen) {
+          currentFen = msg.revertedFen;
+          activeTurn = (currentFen.split(' ')[1] === 'w') ? 'white' : 'black';
+          selectedSquare = null;
+          renderBoard();
+          alert('Takeback granted!');
+        } else {
+          alert('Takeback request declined.');
+        }
+        return;
+      }
     }
 
     // ─── Chessboard Rendering ───────────────────────────────────────────────
@@ -956,19 +988,28 @@ class TcpServer extends StateNotifier<TcpServerState> {
         const from = selectedSquare;
         const to = sq;
         selectedSquare = null;
-        sendMove(from, to);
+
+        const piece = boardMap[from];
+        let promo = null;
+        if (piece && (piece.char === 'P' || piece.char === 'p')) {
+          if (piece.color === 'white' && to.endsWith('8')) promo = 'q';
+          if (piece.color === 'black' && to.endsWith('1')) promo = 'q';
+        }
+        sendMove(from, to, promo);
       }
     }
 
-    function sendMove(from, to) {
+    function sendMove(from, to, promo) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({
+      const pkt = {
         type: 'move',
         from: from,
         to: to,
         whiteTimeMs: whiteTimeMs,
         blackTimeMs: blackTimeMs
-      }));
+      };
+      if (promo) pkt.promotion = promo;
+      ws.send(JSON.stringify(pkt));
       playMoveSound();
     }
 
@@ -977,10 +1018,17 @@ class TcpServer extends StateNotifier<TcpServerState> {
       renderBoard();
     }
 
+    function requestTakeback() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'takeback_req', requesterId: myPlayerId }));
+        alert('Takeback request sent to opponent.');
+      }
+    }
+
     function offerDraw() {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'takeback_req', requesterId: myPlayerId }));
-        alert('Draw/Takeback request sent to host.');
+        alert('Draw offer sent to opponent.');
       }
     }
 

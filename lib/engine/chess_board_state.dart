@@ -296,6 +296,7 @@ class ChessBoardNotifier extends StateNotifier<ChessBoardState> {
         'san': san,
         'from': from,
         'to': effectiveTo,
+        'promotion': promotion,
         'moveNumber': moveNum,
         'color': movedColor,
       }
@@ -423,6 +424,81 @@ class ChessBoardNotifier extends StateNotifier<ChessBoardState> {
       gameOverReason: reason,
       winnerId: winnerId,
     );
+  }
+
+  // -------------------------------------------------------------------------
+  // Undo / Revert (Takeback)
+  // -------------------------------------------------------------------------
+
+  /// Undoes [count] plies from moveHistory by replaying from the starting FEN.
+  /// Recomputes captured pieces, material advantage, checks, turn, and game state.
+  /// Returns the reverted FEN, or null if history is empty.
+  String? undoMoves([int count = 1]) {
+    if (state.moveHistory.isEmpty || count <= 0) return null;
+    final targetCount =
+        (state.moveHistory.length - count).clamp(0, state.moveHistory.length);
+    final historyToReplay = state.moveHistory.sublist(0, targetCount);
+
+    _chess = Chess();
+    var newWhiteCaptured = <String>[];
+    var newBlackCaptured = <String>[];
+
+    for (final m in historyToReplay) {
+      final from = m['from'] as String? ?? '';
+      final to = m['to'] as String? ?? '';
+      final promo = m['promotion'] as String?;
+      final targetPiece = _chess.get(to);
+      final isEnPassant = _chess.get(from)?.type == PieceType.PAWN &&
+          from.isNotEmpty &&
+          to.isNotEmpty &&
+          from[0] != to[0] &&
+          targetPiece == null;
+      final movedColor = _chess.turn == Color.WHITE ? 'white' : 'black';
+
+      final moveMap = <String, String>{'from': from, 'to': to};
+      if (promo != null) moveMap['promotion'] = promo;
+      _chess.move(moveMap);
+
+      if (targetPiece != null) {
+        final sym = _pieceTypeToSymbol(targetPiece.type);
+        if (movedColor == 'white') {
+          newWhiteCaptured = [...newWhiteCaptured, sym];
+        } else {
+          newBlackCaptured = [...newBlackCaptured, sym];
+        }
+      } else if (isEnPassant) {
+        if (movedColor == 'white') {
+          newWhiteCaptured = [...newWhiteCaptured, 'p'];
+        } else {
+          newBlackCaptured = [...newBlackCaptured, 'p'];
+        }
+      }
+    }
+
+    final advantage = _computeAdvantage(newWhiteCaptured, newBlackCaptured);
+    final newTurn = _chess.turn == Color.WHITE ? 'white' : 'black';
+    final checkSq =
+        _chess.in_check ? MoveValidator.findKingSquare(_chess, newTurn) : null;
+
+    final lastMove = historyToReplay.isNotEmpty ? historyToReplay.last : null;
+
+    state = state.copyWith(
+      fen: _chess.fen,
+      selectedSquare: null,
+      legalTargets: [],
+      lastMoveFrom: lastMove?['from'] as String?,
+      lastMoveTo: lastMove?['to'] as String?,
+      checkSquare: checkSq,
+      moveHistory: historyToReplay,
+      whiteCaptured: newWhiteCaptured,
+      blackCaptured: newBlackCaptured,
+      whiteMaterialAdvantage: advantage,
+      currentTurn: newTurn,
+      isGameOver: false,
+      gameOverReason: null,
+    );
+
+    return _chess.fen;
   }
 
   // -------------------------------------------------------------------------

@@ -6,6 +6,8 @@ class MoveHistoryWidget extends StatefulWidget {
   final List<String> whiteCaptured;
   final List<String> blackCaptured;
   final int whiteMaterialAdvantage;
+  final void Function(int plyIndex)? onPlySelected;
+  final int? viewingPlyIndex; // null = live position
 
   const MoveHistoryWidget({
     super.key,
@@ -13,6 +15,8 @@ class MoveHistoryWidget extends StatefulWidget {
     required this.whiteCaptured,
     required this.blackCaptured,
     required this.whiteMaterialAdvantage,
+    this.onPlySelected,
+    this.viewingPlyIndex,
   });
 
   @override
@@ -25,7 +29,9 @@ class _MoveHistoryWidgetState extends State<MoveHistoryWidget> {
   @override
   void didUpdateWidget(covariant MoveHistoryWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.moveHistory.length != oldWidget.moveHistory.length) {
+    // Auto-scroll to end when new moves arrive AND when in live mode
+    if (widget.moveHistory.length != oldWidget.moveHistory.length &&
+        widget.viewingPlyIndex == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
@@ -107,14 +113,18 @@ class _MoveHistoryWidgetState extends State<MoveHistoryWidget> {
                     itemCount: (widget.moveHistory.length + 1) ~/ 2,
                     itemBuilder: (context, turnIndex) {
                       final moveNum = turnIndex + 1;
-                      final whiteMoveIndex = turnIndex * 2;
-                      final blackMoveIndex = whiteMoveIndex + 1;
+                      final whitePlyIndex = turnIndex * 2;
+                      final blackPlyIndex = whitePlyIndex + 1;
 
                       final whiteSan =
-                          widget.moveHistory[whiteMoveIndex]['san'] as String? ?? '';
-                      final blackSan = blackMoveIndex < widget.moveHistory.length
-                          ? widget.moveHistory[blackMoveIndex]['san'] as String? ?? ''
+                          widget.moveHistory[whitePlyIndex]['san'] as String? ?? '';
+                      final blackSan = blackPlyIndex < widget.moveHistory.length
+                          ? widget.moveHistory[blackPlyIndex]['san'] as String? ?? ''
                           : '';
+
+                      final isWhiteSelected = widget.viewingPlyIndex == whitePlyIndex;
+                      final isBlackSelected = blackPlyIndex < widget.moveHistory.length &&
+                          widget.viewingPlyIndex == blackPlyIndex;
 
                       return Container(
                         margin: const EdgeInsets.only(right: 12),
@@ -129,22 +139,57 @@ class _MoveHistoryWidgetState extends State<MoveHistoryWidget> {
                                 color: Color(0xFF9399B2),
                               ),
                             ),
-                            Text(
-                              whiteSan,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFFCDD6F4),
+                            // White move chip
+                            GestureDetector(
+                              onTap: () => widget.onPlySelected?.call(whitePlyIndex),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isWhiteSelected
+                                      ? const Color(0xFF242A33)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  whiteSan,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isWhiteSelected
+                                        ? const Color(0xFFFFDB3C)
+                                        : const Color(0xFFCDD6F4),
+                                  ),
+                                ),
                               ),
                             ),
+                            // Black move chip
                             if (blackSan.isNotEmpty) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                blackSan,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFFA6ADC8),
+                              const SizedBox(width: 4),
+                              GestureDetector(
+                                onTap: () =>
+                                    widget.onPlySelected?.call(blackPlyIndex),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isBlackSelected
+                                        ? const Color(0xFF242A33)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    blackSan,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isBlackSelected
+                                          ? const Color(0xFFFFDB3C)
+                                          : const Color(0xFFA6ADC8),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],

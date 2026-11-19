@@ -11,4 +11,5 @@ class AppConstants {
   static const String modeStandard = 'standard';
   static const String modeKoth = 'koth';
   static const String modeDare = 'dare';
+  static const String modePassAndPlay = 'pass_and_play';
 }

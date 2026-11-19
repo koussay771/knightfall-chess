@@ -42,9 +42,14 @@ class SyncProtocol {
         return typeMove;
       case 'takeback_req':
       case 'takebackreq':
+      case 'takeback_request':
+      case 'takebackrequest':
         return typeTakebackReq;
       case 'takeback_res':
       case 'takebackres':
+      case 'takeback_response':
+      case 'takeback_accept':
+      case 'takeback_decline':
         return typeTakebackRes;
       case 'game_over':
       case 'gameover':

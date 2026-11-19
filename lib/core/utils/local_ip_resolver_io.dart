@@ -10,14 +10,28 @@ Future<String?> getPlatformLocalIp() async {
 
     if (interfaces.isEmpty) return null;
 
-    // 1. Hotspot / Tethering interfaces (Android/iOS/PC hotspot)
+    // 0. Active Hotspot subnet match (Android hotspot 192.168.43.x, Windows hotspot 192.168.137.x)
+    for (final interface in interfaces) {
+      for (final addr in interface.addresses) {
+        if (!addr.isLoopback && addr.type == InternetAddressType.IPv4) {
+          if (addr.address.startsWith('192.168.43.') ||
+              addr.address.startsWith('192.168.137.')) {
+            return addr.address;
+          }
+        }
+      }
+    }
+
+    // 1. Hotspot / Tethering interfaces (Android/iOS/PC hotspot by name)
     for (final interface in interfaces) {
       final name = interface.name.toLowerCase();
       if (name.contains('ap') ||
           name.contains('softap') ||
           name.contains('tether') ||
           name.contains('rndis') ||
-          name.contains('swlan')) {
+          name.contains('swlan') ||
+          name.contains('hotspot') ||
+          name.contains('direct')) {
         for (final addr in interface.addresses) {
           if (!addr.isLoopback &&
               addr.type == InternetAddressType.IPv4 &&
