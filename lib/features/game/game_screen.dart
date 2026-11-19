@@ -319,11 +319,35 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     if (isMyTurn) {
       final selected = board.selectedSquare;
 
+      // Determine if the tapped square holds one of my own pieces.
+      final chess = chess_pkg.Chess.fromFEN(board.fen);
+      final pieceOnSquare = chess.get(square);
+      final myColorEnum =
+          widget.myColor == 'white' ? chess_pkg.Color.WHITE : chess_pkg.Color.BLACK;
+      final isFriendly =
+          pieceOnSquare != null && pieceOnSquare.color == myColorEnum;
+
       if (selected == null) {
+        // Nothing selected: start a new selection.
         ref.read(chessBoardProvider.notifier).selectSquare(square);
       } else if (selected == square) {
+        // Tap same square again → deselect.
         ref.read(chessBoardProvider.notifier).selectSquare(square);
+      } else if (isFriendly) {
+        // Tapped a friendly piece while another piece is already selected.
+        // Special case: if the selected piece is the King and this Rook square
+        // is a legal castling target, treat it as a castling move.
+        final isKingSelected =
+            chess.get(selected)?.type == chess_pkg.PieceType.KING;
+        if (isKingSelected && board.legalTargets.contains(square)) {
+          // Castling — go through normal move flow.
+          await _attemptPlayerMove(selected, square);
+        } else {
+          // Switch selection smoothly — no illegal-move warnings.
+          ref.read(chessBoardProvider.notifier).selectSquare(square);
+        }
       } else {
+        // Target is an empty square or enemy piece → attempt the move.
         await _attemptPlayerMove(selected, square);
       }
     } else {
@@ -816,12 +840,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       backgroundColor: const Color(0xFF0E141C),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 4.0),
+          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
           child: Column(
             children: [
               // ── 1. Top Header Matching "KNIGHTFALL CHESS" Mockup ──
               _buildTopHeader(),
-              const SizedBox(height: 6),
+              const SizedBox(height: 3),
 
               // ── 2. Opponent Card Banner with Connection Latency & Stockfish Status ──
               _buildOpponentBanner(
@@ -829,7 +853,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 isActive: !isMyTurn,
                 advantage: opponentAdvantage,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
               // ── 3. Precision 8x8 Chess Arena Frame with Evaluation Bar ──
               Expanded(
@@ -837,7 +861,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   child: AspectRatio(
                     aspectRatio: 1.0,
                     child: Container(
-                      padding: const EdgeInsets.all(5),
+                      padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         color: const Color(0xFF090F16),
                         borderRadius: BorderRadius.circular(14),
@@ -900,7 +924,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
               // ── 4. Bottom Player HUD Banner with Glowing Border ──
               _buildPlayerBanner(
@@ -908,15 +932,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 isActive: isMyTurn,
                 moveCount: board.moveHistory.length ~/ 2 + 1,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 3),
 
               // ── 5. Tactical Action Controls: [ Flip ], [ Offer Draw ], [ Resign ], [ Arbiter ] ──
               _buildActionControls(),
-              const SizedBox(height: 6),
+              const SizedBox(height: 3),
 
               // ── 6. Micro Move Notation Ticker with PGN button ──
               _buildMoveTicker(board.moveHistory),
-              const SizedBox(height: 6),
+              const SizedBox(height: 3),
 
               // ── 7. Pinned Bottom Navigation: Play, Network, Board, History ──
               _buildBottomNav(),

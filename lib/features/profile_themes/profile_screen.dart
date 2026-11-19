@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/providers/user_profile_provider.dart';
 import 'theme_screen.dart';
 
 /// Player Profile setup screen (Phase 4).
-class ProfileScreen extends StatefulWidget {
+/// Uses [userProfileProvider] for reactive cross-screen persistence.
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  final TextEditingController _nameController = TextEditingController();
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  late final TextEditingController _nameController;
 
   final List<String> _avatarIcons = [
     '♟️', '🦁', '🐯', '🦅', '🔥', '⚡', '💎', '👑', '🏆', '🎯', '🐉', '🐺'
   ];
 
   final List<Color> _accentColors = const [
+    Color(0xFF39FF7E), // Neon Green (default)
     Color(0xFF769656),
     Color(0xFF89B4FA),
     Color(0xFFF9E2AF),
@@ -30,37 +33,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ];
 
   String _selectedAvatar = '♟️';
-  Color _selectedColor = const Color(0xFF769656);
+  Color _selectedColor = const Color(0xFF39FF7E);
 
   @override
   void initState() {
     super.initState();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _nameController.text = prefs.getString('player_name') ?? 'Player';
-      _selectedAvatar = prefs.getString('player_avatar') ?? '♟️';
-      final colorVal = prefs.getInt('player_color');
-      if (colorVal != null) {
-        _selectedColor = Color(colorVal);
-      }
-    });
+    // Seed from the already-loaded global provider.
+    final profile = ref.read(userProfileProvider);
+    _nameController = TextEditingController(text: profile.name);
+    _selectedAvatar = profile.avatar;
+    _selectedColor = profile.accentColor;
   }
 
   Future<void> _saveProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('player_name', _nameController.text.trim());
-    await prefs.setString('player_avatar', _selectedAvatar);
-    await prefs.setInt('player_color', _selectedColor.toARGB32());
+    // Persist via the reactive notifier — rebuilds LobbyScreen, GameScreen,
+    // NetworkHubPage, ThemeData accent immediately.
+    await ref.read(userProfileProvider.notifier).updateProfile(
+          name: _nameController.text,
+          avatar: _selectedAvatar,
+          accentColor: _selectedColor,
+        );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Profile saved successfully!'),
-          backgroundColor: Color(0xFF769656),
+          backgroundColor: Color(0xFF39FF7E),
         ),
       );
       Navigator.of(context).pop();

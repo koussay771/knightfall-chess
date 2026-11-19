@@ -1,21 +1,30 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:chess/chess.dart' as chess_lib;
+
+/// Top-level worker function executed on a background Isolate via [compute].
+Map<String, String>? _computeBestMoveWorker(Map<String, dynamic> params) {
+  final fen = params['fen'] as String;
+  final depth = (params['depth'] as int?) ?? 3;
+  return ChessBot.computeBestMoveSync(fen, depth);
+}
 
 /// Offline Chess Bot rated ~1500 ELO.
 ///
 /// Features:
 /// - Minimax search with Alpha-Beta pruning (depth 3-4).
+/// - Non-blocking background isolate evaluation via Flutter's [compute].
 /// - Move ordering (MVV-LVA for captures, checks, promotions).
 /// - Comprehensive piece-square positional evaluation (PST).
 /// - Opening repertoire for natural book play.
-/// - Realistic thinking delay (500ms - 900ms) with non-blocking evaluation.
+/// - Realistic thinking delay (500ms - 900ms) that never freezes the UI or timers.
 class ChessBot {
   final int searchDepth;
   final Random _rng = Random();
 
   ChessBot({this.searchDepth = 3});
 
-  /// Evaluates the current [fen] position and returns the best move as
+  /// Evaluates the current [fen] position on a background isolate and returns the best move as
   /// `{'from': 'e2', 'to': 'e4', 'promotion': 'q'}`.
   ///
   /// Returns `null` if the game is over or no legal moves exist.
@@ -29,18 +38,43 @@ class ChessBot {
     // Check opening book for standard start position
     const initialFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     if (fen == initialFen || (chess.history.isNotEmpty && chess.history.length <= 2)) {
-      final bookMove = _getOpeningBookMove(chess, legalMoves);
+      final bookMove = _getOpeningBookMove(chess, legalMoves, _rng);
       if (bookMove != null) {
-        // Add realistic human think time
+        // Add realistic human think time asynchronously
         await Future.delayed(
             Duration(milliseconds: 300 + _rng.nextInt(200)));
         return bookMove;
       }
     }
 
-    // Thinking delay to simulate a human opponent
     final stopwatch = Stopwatch()..start();
 
+    // Offload Minimax / Alpha-Beta calculation to a background Isolate
+    // so the UI frame rate (60fps) and game clocks never freeze.
+    final bestMove = await compute(_computeBestMoveWorker, {
+      'fen': fen,
+      'depth': searchDepth,
+    });
+
+    // Ensure human thinking delay without blocking the UI thread
+    stopwatch.stop();
+    final elapsed = stopwatch.elapsedMilliseconds;
+    if (elapsed < 500) {
+      await Future.delayed(Duration(milliseconds: 500 - elapsed));
+    }
+
+    return bestMove;
+  }
+
+  /// Synchronous core calculation meant to run inside a worker Isolate.
+  static Map<String, String>? computeBestMoveSync(String fen, int depth) {
+    final chess = chess_lib.Chess.fromFEN(fen);
+    if (chess.in_checkmate || chess.in_draw) return null;
+
+    final legalMoves = chess.moves({'verbose': true});
+    if (legalMoves.isEmpty) return null;
+
+    final rng = Random();
     final isWhite = chess.turn == chess_lib.Color.WHITE;
     final sortedMoves = _orderMoves(chess, legalMoves);
 
@@ -69,14 +103,14 @@ class ChessBot {
 
       final score = _alphaBeta(
         testChess,
-        searchDepth - 1,
+        depth - 1,
         alpha,
         beta,
         !isWhite,
       );
 
       // Add a slight ±8 centipawn jitter for realistic 1500 ELO human variability
-      final jitteredScore = score + (_rng.nextInt(17) - 8);
+      final jitteredScore = score + (rng.nextInt(17) - 8);
 
       if (isWhite) {
         if (jitteredScore > bestScore || bestMove == null) {
@@ -95,17 +129,10 @@ class ChessBot {
       if (beta <= alpha) break;
     }
 
-    // Ensure at least 450ms thinking elapsed
-    stopwatch.stop();
-    final elapsed = stopwatch.elapsedMilliseconds;
-    if (elapsed < 500) {
-      await Future.delayed(Duration(milliseconds: 500 - elapsed));
-    }
-
     return bestMove;
   }
 
-  int _alphaBeta(
+  static int _alphaBeta(
     chess_lib.Chess chess,
     int depth,
     int alpha,
@@ -172,7 +199,7 @@ class ChessBot {
 
   /// Evaluates static board position from White's perspective in centipawns.
   /// Positive = White advantage, Negative = Black advantage.
-  int _evaluatePosition(chess_lib.Chess chess) {
+  static int _evaluatePosition(chess_lib.Chess chess) {
     if (chess.in_checkmate) {
       return chess.turn == chess_lib.Color.WHITE ? -200000 : 200000;
     }
@@ -210,7 +237,7 @@ class ChessBot {
     return totalScore;
   }
 
-  int _getPieceSquareScore(String piece, int row, int col) {
+  static int _getPieceSquareScore(String piece, int row, int col) {
     final isWhite = piece == piece.toUpperCase();
     final lower = piece.toLowerCase();
 
@@ -254,7 +281,7 @@ class ChessBot {
   }
 
   /// Sorts moves for optimal Alpha-Beta pruning (MVV-LVA for captures).
-  List<dynamic> _orderMoves(chess_lib.Chess chess, List<dynamic> moves) {
+  static List<dynamic> _orderMoves(chess_lib.Chess chess, List<dynamic> moves) {
     final scored = moves.map((m) {
       int score = 0;
       // Promotion
@@ -278,7 +305,7 @@ class ChessBot {
     return scored.map((e) => e['move']).toList();
   }
 
-  int _pieceBaseValue(String p) {
+  static int _pieceBaseValue(String p) {
     final lower = p.toLowerCase();
     if (lower.contains('q')) return 900;
     if (lower.contains('r')) return 500;
@@ -289,13 +316,13 @@ class ChessBot {
     return 0;
   }
 
-  Map<String, String>? _getOpeningBookMove(
-      chess_lib.Chess chess, List<dynamic> moves) {
+  static Map<String, String>? _getOpeningBookMove(
+      chess_lib.Chess chess, List<dynamic> moves, Random rng) {
     final history = chess.history;
 
     if (history.isEmpty) {
       // First move as White: 1. e4 (60%) or 1. d4 (35%) or 1. Nf3 (5%)
-      final r = _rng.nextInt(100);
+      final r = rng.nextInt(100);
       if (r < 60) return {'from': 'e2', 'to': 'e4'};
       if (r < 95) return {'from': 'd2', 'to': 'd4'};
       return {'from': 'g1', 'to': 'f3'};
@@ -308,13 +335,13 @@ class ChessBot {
 
       if (whiteSan == 'e2e4') {
         // Responses to e4: 1... c5 (Sicilian) or 1... e5 (Open Game)
-        return _rng.nextBool()
+        return rng.nextBool()
             ? {'from': 'c7', 'to': 'c5'}
             : {'from': 'e7', 'to': 'e5'};
       }
       if (whiteSan == 'd2d4') {
         // Responses to d4: 1... Nf6 (Indian) or 1... d5
-        return _rng.nextBool()
+        return rng.nextBool()
             ? {'from': 'g8', 'to': 'f6'}
             : {'from': 'd7', 'to': 'd5'};
       }

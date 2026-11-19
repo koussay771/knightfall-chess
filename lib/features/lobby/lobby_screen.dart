@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/theme_constants.dart';
+import '../../core/providers/user_profile_provider.dart';
 import '../game/game_screen.dart';
 import '../history/history_screen.dart';
 import '../profile_themes/profile_tab.dart';
@@ -76,40 +76,16 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 }
 
 // ─── Play Tab ─────────────────────────────────────────────────────────────────
-class _PlayTab extends StatefulWidget {
+class _PlayTab extends ConsumerStatefulWidget {
   const _PlayTab();
 
   @override
-  State<_PlayTab> createState() => _PlayTabState();
+  ConsumerState<_PlayTab> createState() => _PlayTabState();
 }
 
-class _PlayTabState extends State<_PlayTab> {
-  String _playerName = 'Player';
-  String _playerAvatar = '♟️';
+class _PlayTabState extends ConsumerState<_PlayTab> {
   int _selectedTimeIndex = 1; // 5 min default
   String _selectedMode = AppConstants.modeStandard;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _playerName = prefs.getString('player_name') ?? 'Player';
-        _playerAvatar = prefs.getString('player_avatar') ?? '♟️';
-      });
-    }
-  }
 
   static const _modeData = [
     {
@@ -134,6 +110,8 @@ class _PlayTabState extends State<_PlayTab> {
 
   @override
   Widget build(BuildContext context) {
+    // Reactively watches the global user profile — no more manual SharedPrefs loads.
+    final profile = ref.watch(userProfileProvider);
     final size = MediaQuery.of(context).size;
     final isSmall = size.height < 700;
 
@@ -143,8 +121,8 @@ class _PlayTabState extends State<_PlayTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Profile mini-banner ──
-            _ProfileBanner(name: _playerName, avatar: _playerAvatar),
+            // ── Profile mini-banner (reactive) ──
+            _ProfileBanner(name: profile.name, avatar: profile.avatar),
             SizedBox(height: isSmall ? 8 : 12),
 
             // ── Time Control Chips ──
@@ -217,7 +195,7 @@ class _PlayTabState extends State<_PlayTab> {
                     isHost: true,
                     isBot: true,
                     myPlayerId: const Uuid().v4(),
-                    myPlayerName: _playerName,
+                    myPlayerName: profile.name,
                     opponentName: 'Chess Bot (1500)',
                     myColor: 'white',
                     initialTimeSeconds:

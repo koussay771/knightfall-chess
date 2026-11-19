@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -12,6 +11,7 @@ import '../../network/tcp_client.dart';
 import '../../network/udp_discovery.dart';
 import '../game/game_screen.dart';
 import '../spectator/spectator_screen.dart';
+import 'qr_scanner_screen.dart';
 
 class JoinScreen extends ConsumerStatefulWidget {
   const JoinScreen({super.key});
@@ -134,33 +134,16 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
     }
   }
 
-  void _openQrScanner() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => Scaffold(
-          backgroundColor: AppColors.bg0,
-          appBar: AppBar(
-            title: const Text('Scan Host QR Code'),
-            backgroundColor: AppColors.bg0,
-          ),
-          body: MobileScanner(
-            onDetect: (capture) {
-              for (final barcode in capture.barcodes) {
-                final raw = barcode.rawValue;
-                if (raw != null) {
-                  final info = NetworkUtils.decodeQrPayload(raw);
-                  if (info != null) {
-                    Navigator.of(ctx).pop();
-                    _connectToHost(info.ip, info.port);
-                    return;
-                  }
-                }
-              }
-            },
-          ),
-        ),
-      ),
+  void _openQrScanner() async {
+    final raw = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
     );
+    if (raw != null) {
+      final info = NetworkUtils.decodeQrPayload(raw);
+      if (info != null) {
+        _connectToHost(info.ip, info.port);
+      }
+    }
   }
 
   @override

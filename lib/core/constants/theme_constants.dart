@@ -704,9 +704,11 @@ class AppThemes {
     );
   }
 
-  static ThemeData get darkTheme => ThemeData(
-        colorScheme: const ColorScheme.dark(
-          primary: AppColors.neonGreen,
+  static ThemeData get darkTheme => buildDarkTheme(AppColors.neonGreen);
+
+  static ThemeData buildDarkTheme(Color accentColor) => ThemeData(
+        colorScheme: ColorScheme.dark(
+          primary: accentColor,
           secondary: AppColors.gold,
           surface: AppColors.bg2,
           onPrimary: AppColors.bg1,
@@ -714,6 +716,7 @@ class AppThemes {
           onSurface: AppColors.textPrimary,
           error: AppColors.loss,
         ),
+        primaryColor: accentColor,
         scaffoldBackgroundColor: AppColors.bg1,
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.bg1,
@@ -739,7 +742,7 @@ class AppThemes {
         ),
         chipTheme: ChipThemeData(
           backgroundColor: AppColors.bg3,
-          selectedColor: AppColors.neonGreenFaint,
+          selectedColor: accentColor.withValues(alpha: 0.2),
           side: const BorderSide(color: AppColors.border),
           labelStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
           shape: RoundedRectangleBorder(

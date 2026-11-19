@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/theme_constants.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/providers/user_profile_provider.dart';
 import 'theme_screen.dart';
 
 /// Profile + Theme tab content — zero-scroll, compact, hosted in LobbyScreen tabs.
@@ -72,7 +72,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   @override
   void initState() {
     super.initState();
-    _load();
+    // Seed local text field from the already-loaded provider state.
+    final profile = ref.read(userProfileProvider);
+    _nameCtrl.text = profile.name;
+    _selectedAvatar = profile.avatar;
+    _selectedColor = profile.accentColor;
   }
 
   @override
@@ -81,24 +85,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _nameCtrl.text = prefs.getString('player_name') ?? 'Player';
-        _selectedAvatar = prefs.getString('player_avatar') ?? '♟️';
-        final cv = prefs.getInt('player_color');
-        if (cv != null) _selectedColor = Color(cv);
-      });
-    }
-  }
-
   Future<void> _save() async {
     setState(() => _saving = true);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('player_name', _nameCtrl.text.trim());
-    await prefs.setString('player_avatar', _selectedAvatar);
-    await prefs.setInt('player_color', _selectedColor.toARGB32());
+    // Persist via the global reactive notifier — this triggers a rebuild
+    // in LobbyScreen, GameScreen, NetworkHubPage, and ThemeData simultaneously.
+    await ref.read(userProfileProvider.notifier).updateProfile(
+          name: _nameCtrl.text,
+          avatar: _selectedAvatar,
+          accentColor: _selectedColor,
+        );
     if (mounted) {
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
