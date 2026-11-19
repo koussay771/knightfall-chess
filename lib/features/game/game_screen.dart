@@ -81,6 +81,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     _detectLocalIp();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Sync sound theme from provider into SoundManager singleton.
+      final soundTheme = ref.read(soundThemeProvider);
+      SoundManager.instance.setTheme(soundTheme);
+
       ref.read(chessBoardProvider.notifier).reset(
             mode: widget.gameMode == 'koth'
                 ? GameMode.koth
@@ -154,12 +158,27 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       final success = notifier.makeMove(from, to, promotion: promo);
       if (success) {
         setState(() => _viewingPlyIndex = null);
+        final updated = ref.read(chessBoardProvider);
         if (_fxEnabled) {
-          SoundManager.instance.playMove();
+          final postChess = chess_pkg.Chess.fromFEN(updated.fen);
+          if (postChess.in_check) {
+            SoundManager.instance.playCheck();
+          } else {
+            final lastMove = updated.moveHistory.isNotEmpty
+                ? updated.moveHistory.last
+                : null;
+            final wasCapture = lastMove != null &&
+                (lastMove['captured'] != null ||
+                    (lastMove['san'] as String? ?? '').contains('x'));
+            if (wasCapture) {
+              SoundManager.instance.playCapture();
+            } else {
+              SoundManager.instance.playMove();
+            }
+          }
         }
         _scrollToLatestMove();
 
-        final updated = ref.read(chessBoardProvider);
         if (updated.isGameOver) {
           _handleGameEndedLocally(updated);
         } else {
@@ -241,7 +260,23 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       }
 
       if (_fxEnabled) {
-        SoundManager.instance.playMove();
+        final updated2 = ref.read(chessBoardProvider);
+        final postChess2 = chess_pkg.Chess.fromFEN(updated2.fen);
+        if (postChess2.in_check) {
+          SoundManager.instance.playCheck();
+        } else {
+          final lastM = updated2.moveHistory.isNotEmpty
+              ? updated2.moveHistory.last
+              : null;
+          final wasCap = lastM != null &&
+              (lastM['captured'] != null ||
+                  (lastM['san'] as String? ?? '').contains('x'));
+          if (wasCap) {
+            SoundManager.instance.playCapture();
+          } else {
+            SoundManager.instance.playMove();
+          }
+        }
       }
       setState(() => _viewingPlyIndex = null);
       _scrollToLatestMove();
@@ -269,11 +304,28 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       _showIncomingTakebackRequest();
     } else if (type == SyncProtocol.typeTakebackRes) {
       final accepted = msg['accepted'] as bool? ?? false;
-      final revertedFen = msg['revertedFen'] as String?;
       setState(() => _takebackPending = false);
 
-      if (accepted && revertedFen != null) {
-        ref.read(chessBoardProvider.notifier).applyFen(revertedFen);
+      if (accepted) {
+        // Host received acceptance — revert locally (web client sends no FEN).
+        final reverted =
+            ref.read(chessBoardProvider.notifier).undoMoves(1);
+        if (reverted != null) {
+          setState(() => _viewingPlyIndex = null);
+          if (_fxEnabled) SoundManager.instance.playTakeback();
+          // Re-broadcast updated state to all connected clients.
+          if (widget.isHost) {
+            final board = ref.read(chessBoardProvider);
+            final syncPkt = SyncProtocol.syncState(
+              fen: board.fen,
+              moveHistory:
+                  board.moveHistory.map((m) => m['san'] as String).toList(),
+              whiteTimeMs: _whiteTimeMs,
+              blackTimeMs: _blackTimeMs,
+            );
+            ref.read(tcpServerProvider.notifier).broadcast(syncPkt);
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Takeback accepted!'),
@@ -321,6 +373,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // ─── Clock Timer ──────────────────────────────────────────────────────────
 
+  // Track whether we've already played the low-time warning this turn.
+  bool _lowTimeSoundPlayed = false;
+
   void _startClockTimer() {
     if (widget.initialTimeSeconds <= 0) return;
 
@@ -341,11 +396,21 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           _whiteTimeMs = (_whiteTimeMs - 100).clamp(0, 99999999);
           if (_whiteTimeMs <= 0 && !_gameOverHandled) {
             _onTimeout('white');
+          } else if (_fxEnabled &&
+              _whiteTimeMs <= 30000 &&
+              !_lowTimeSoundPlayed) {
+            _lowTimeSoundPlayed = true;
+            SoundManager.instance.playLowTime();
           }
         } else {
           _blackTimeMs = (_blackTimeMs - 100).clamp(0, 99999999);
           if (_blackTimeMs <= 0 && !_gameOverHandled) {
             _onTimeout('black');
+          } else if (_fxEnabled &&
+              _blackTimeMs <= 30000 &&
+              !_lowTimeSoundPlayed) {
+            _lowTimeSoundPlayed = true;
+            SoundManager.instance.playLowTime();
           }
         }
       });
@@ -466,7 +531,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final activeColor =
         widget.isPassAndPlay ? board.currentTurn : widget.myColor;
     final isPawn = _isPawn(board.fen, from);
-    final isPromotion = isPawn && _isPromotionRank(activeColor, to);
+    // Guard: only trigger promotion dialog when piece IS a pawn AND landing on
+    // the correct back-rank AND the chess engine agrees it is a legal move.
+    final normalizedToCheck = MoveValidator.normalizeMoveTo(from, to);
+    final isPromotion = isPawn &&
+        _isPromotionRank(activeColor, to) &&
+        _isLegalMove(board.fen, from, normalizedToCheck, 'q');
 
     String? promoPiece = promoOverride;
     if (isPromotion && promoPiece == null) {
@@ -486,20 +556,36 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         _blackTimeMs += widget.incrementSeconds * 1000;
       }
 
+      final updatedBoard = ref.read(chessBoardProvider);
+
       if (_fxEnabled) {
-        SoundManager.instance.playMove();
+        // Pick contextual sound: check > capture > move.
+        final postChess = chess_pkg.Chess.fromFEN(updatedBoard.fen);
+        if (postChess.in_check) {
+          SoundManager.instance.playCheck();
+        } else {
+          // Check whether a capture occurred (last history entry has captured).
+          final lastMove = updatedBoard.moveHistory.isNotEmpty
+              ? updatedBoard.moveHistory.last
+              : null;
+          final wasCapture =
+              lastMove != null && (lastMove['captured'] != null || (lastMove['san'] as String? ?? '').contains('x'));
+          if (wasCapture) {
+            SoundManager.instance.playCapture();
+          } else {
+            SoundManager.instance.playMove();
+          }
+        }
       }
+
       setState(() => _viewingPlyIndex = null);
       _scrollToLatestMove();
 
       setState(() {
         _viewingPlyIndex = null;
-        if (widget.isPassAndPlay) {
-          _manualFlip = !_manualFlip;
-        }
+        // Reset low-time warning so the next player gets their own warning.
+        _lowTimeSoundPlayed = false;
       });
-
-      final updatedBoard = ref.read(chessBoardProvider);
 
       if (!widget.isBot && !widget.isPassAndPlay) {
         final movePacket = SyncProtocol.move(
@@ -522,43 +608,42 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       }
     } else {
       final chess = chess_pkg.Chess.fromFEN(board.fen);
-      final isExposure =
-          MoveValidator.wouldExposeOrLeaveInCheck(chess, from, normalizedTo);
 
-      if (isExposure) {
-        if (_fxEnabled) {
-          SoundManager.instance.playIllegalMove();
-        }
+      if (chess.in_check) {
+        // Player is already in check and tried an illegal escape — flash king.
+        if (_fxEnabled) SoundManager.instance.playIllegalMove();
         final kingSq = MoveValidator.findKingSquare(chess, activeColor);
         setState(() {
           _shakeTrigger++;
           _flashKingSquare = kingSq;
         });
-
         Timer(const Duration(milliseconds: 1400), () {
-          if (mounted) {
-            setState(() {
-              _flashKingSquare = null;
-            });
-          }
+          if (mounted) setState(() => _flashKingSquare = null);
         });
-
         if (!mounted) return;
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              chess.in_check
-                  ? 'Invalid move: You must protect or escape check!'
-                  : 'Illegal move: King cannot be exposed to check!',
-            ),
-            backgroundColor: const Color(0xFFE53935),
-            duration: const Duration(seconds: 2),
+          const SnackBar(
+            content: Text('Invalid move: You must protect or escape check!'),
+            backgroundColor: Color(0xFFE53935),
+            duration: Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
           ),
         );
       } else {
-        notifier.selectSquare(to);
+        // Generic illegal move (wrong path, blocked, etc.) — no king flash.
+        if (_fxEnabled) SoundManager.instance.playIllegalMove();
+        setState(() => _shakeTrigger++);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Illegal move.'),
+            backgroundColor: Color(0xFFE53935),
+            duration: Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
@@ -601,6 +686,22 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     try {
       final chess = chess_pkg.Chess.fromFEN(fen);
       return chess.get(square)?.type == chess_pkg.PieceType.PAWN;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns true only if the chess engine considers the given move legal
+  /// (using [promotion] piece type to validate promotion paths).
+  bool _isLegalMove(String fen, String from, String to, String promotion) {
+    try {
+      final chess = chess_pkg.Chess.fromFEN(fen);
+      final moves = chess.generate_moves();
+      return moves.any((m) =>
+          m.fromAlgebraic == from &&
+          m.toAlgebraic == to &&
+          (m.promotion == null ||
+              m.promotion.toString() == promotion));
     } catch (_) {
       return false;
     }
@@ -670,9 +771,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (reverted != null) {
         setState(() {
           _viewingPlyIndex = null;
-          _manualFlip = !_manualFlip;
         });
-        if (_fxEnabled) SoundManager.instance.playMove();
+        if (_fxEnabled) SoundManager.instance.playTakeback();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Move taken back!'),
@@ -689,7 +789,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       final reverted = notifier.undoMoves(2);
       if (reverted != null) {
         setState(() => _viewingPlyIndex = null);
-        if (_fxEnabled) SoundManager.instance.playMove();
+        if (_fxEnabled) SoundManager.instance.playTakeback();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Takeback: Undid last turn!'),
@@ -731,7 +831,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         final notifier = ref.read(chessBoardProvider.notifier);
         revertedFen = notifier.undoMoves(1);
         setState(() => _viewingPlyIndex = null);
-        if (_fxEnabled) SoundManager.instance.playMove();
+        if (_fxEnabled) SoundManager.instance.playTakeback();
       }
 
       final res = SyncProtocol.takebackRes(
@@ -804,8 +904,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     _gameOverHandled = true;
 
     final reasonStr = board.gameOverReason.toString().split('.').last;
-    final winnerId =
-        board.gameOverReason == GameOverReason.checkmate ? widget.myPlayerId : null;
+    final isCheckmate = board.gameOverReason == GameOverReason.checkmate;
+    final winnerId = isCheckmate ? widget.myPlayerId : null;
 
     final msg = SyncProtocol.gameOver(reason: reasonStr, winnerId: winnerId);
     _sendNetworkMessage(msg);
@@ -814,6 +914,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       result: winnerId == widget.myPlayerId ? 'win' : 'draw',
       reason: reasonStr,
     );
+
+    // Play contextual sound.
+    if (_fxEnabled) {
+      if (isCheckmate) {
+        SoundManager.instance.playCheckmate();
+        SoundManager.instance.playVictory();
+      } else {
+        SoundManager.instance.playDraw();
+      }
+    }
 
     _showGameOverDialog(
       'Game Over',
@@ -834,6 +944,17 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       result: isWin ? 'win' : (isLoss ? 'loss' : 'draw'),
       reason: reason,
     );
+
+    // Play contextual sound.
+    if (_fxEnabled) {
+      if (isWin) {
+        SoundManager.instance.playVictory();
+      } else if (isLoss) {
+        SoundManager.instance.playDefeat();
+      } else {
+        SoundManager.instance.playDraw();
+      }
+    }
 
     _showGameOverDialog(
       'Game Over',
@@ -867,9 +988,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _showGameOverDialog(String title, String subtitle) {
-    if (_fxEnabled) {
-      SoundManager.instance.playGameOver();
-    }
+    // Sound is now played by the caller (_handleGameEndedLocally /
+    // _handleGameOverReceived) with the correct win/loss/draw variant.
 
     showDialog(
       context: context,

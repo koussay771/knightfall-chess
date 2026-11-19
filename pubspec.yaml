@@ -33,6 +33,17 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sounds/
+    - assets/sound/
+    - assets/sound/standard/
+    - assets/sound/woodland/
+    - assets/sound/piano/
+    - assets/sound/sfx/
+    - assets/sound/futuristic/
+    - assets/sound/instrument/
+    - assets/sound/lisp/
+    - assets/sound/nes/
+    - assets/sound/other/
+    - assets/sound/robot/
     - assets/board/
     - assets/piece/alpha/
     - assets/piece/anarcandy/
