@@ -25,6 +25,7 @@ class SyncProtocol {
   static const String typeSyncState = 'sync';
   static const String typePing = 'ping';
   static const String typePong = 'pong';
+  static const String typeRoomState = 'room_state';
 
   /// Helper to normalize message types (supports snake_case, camelCase, uppercase).
   static String normalizeType(String? rawType) {
@@ -56,12 +57,32 @@ class SyncProtocol {
         return typePing;
       case 'pong':
         return typePong;
+      case 'room_state':
+      case 'roomstate':
+        return typeRoomState;
       default:
         return lower;
     }
   }
 
   // ─── Message builders ──────────────────────────────────────────────────────
+
+  /// Broadcast by the host in waiting room when players join or settings update.
+  static String roomState({
+    required String status,
+    required String hostName,
+    required String gameMode,
+    required int timeControl,
+    required List<Map<String, dynamic>> players,
+  }) =>
+      encode({
+        'type': typeRoomState,
+        'status': status,
+        'hostName': hostName,
+        'gameMode': gameMode,
+        'timeControl': timeControl,
+        'players': players,
+      });
 
   /// Sent immediately after TCP connection is established.
   /// role is 'player' or 'spectator'.
@@ -91,6 +112,9 @@ class SyncProtocol {
     required int increment,
     required String mode,
     String? dareText,
+    String? whiteName,
+    String? blackName,
+    String? fen,
   }) =>
       encode({
         'type': typeGameStart,
@@ -99,6 +123,9 @@ class SyncProtocol {
         'timeControl': timeControl,
         'increment': increment,
         'mode': mode,
+        if (whiteName != null) 'whiteName': whiteName,
+        if (blackName != null) 'blackName': blackName,
+        if (fen != null) 'fen': fen,
         if (dareText != null) 'dareText': dareText,
       });
 

@@ -210,6 +210,20 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (updated.isGameOver) {
         _handleGameEndedLocally(updated);
       }
+
+      // If this device is the Host, re-broadcast the client's move to all
+      // other connected clients (including spectators and web clients)
+      if (widget.isHost) {
+        final broadcastPacket = SyncProtocol.move(
+          from: from,
+          to: to,
+          promotion: promotion,
+          fen: updated.fen,
+          whiteTimeMs: _whiteTimeMs,
+          blackTimeMs: _blackTimeMs,
+        );
+        ref.read(tcpServerProvider.notifier).broadcast(broadcastPacket);
+      }
     } else if (type == SyncProtocol.typeTakebackReq) {
       _showIncomingTakebackRequest();
     } else if (type == SyncProtocol.typeTakebackRes) {

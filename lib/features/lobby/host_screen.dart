@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/theme_constants.dart';
 import '../../core/utils/network_utils.dart';
+import '../../engine/chess_board_state.dart';
 import '../../network/sync_protocol.dart';
 import '../../network/tcp_server.dart';
 import '../../network/udp_discovery.dart';
@@ -80,6 +81,29 @@ class _HostScreenState extends ConsumerState<HostScreen> {
     final server = ref.read(tcpServerProvider.notifier);
     final boundPort = await server.start();
 
+    // Register waiting room state builder so any connecting client immediately
+    // receives the current room status and player roster.
+    server.buildRoomState = () => SyncProtocol.roomState(
+          status: 'waiting',
+          hostName: name,
+          gameMode: _selectedMode,
+          timeControl: AppConstants.timeControls[_selectedTimeIndex],
+          players: [
+            {
+              'id': _myPlayerId,
+              'name': name,
+              'role': 'player',
+              'isHost': true,
+            },
+            ...server.clients.map((c) => {
+                  'id': c.playerId,
+                  'name': c.name,
+                  'role': c.role.name,
+                  'isHost': false,
+                }),
+          ],
+        );
+
     final udp = ref.read(udpDiscoveryProvider.notifier);
     await udp.startBroadcast(name, _selectedMode, port: boundPort);
 
@@ -88,27 +112,40 @@ class _HostScreenState extends ConsumerState<HostScreen> {
       _hostIp = ip;
       _hostPort = boundPort;
     });
+
+    // Broadcast initial room state
+    final roomMsg = server.buildRoomState?.call();
+    if (roomMsg != null) server.broadcast(roomMsg);
   }
 
   void _cancelHosting() {
     ref.read(udpDiscoveryProvider.notifier).stop();
-    ref.read(tcpServerProvider.notifier).stop();
+    final server = ref.read(tcpServerProvider.notifier);
+    server.buildRoomState = null;
+    server.stop();
     setState(() => _hostingState = _HostingState.setup);
   }
 
   void _launchGame(ConnectedClient opponent) {
     final timeSeconds = AppConstants.timeControls[_selectedTimeIndex];
+    final hostName =
+        _nameController.text.trim().isEmpty ? 'Host' : _nameController.text.trim();
     final startPacket = SyncProtocol.gameStart(
       whiteId: _myPlayerId,
       blackId: opponent.playerId,
+      whiteName: hostName,
+      blackName: opponent.name,
       timeControl: timeSeconds,
       increment: 0,
       mode: _selectedMode,
+      fen: ChessBoardState.initialFen,
       dareText:
           _selectedMode == AppConstants.modeDare ? _dareController.text.trim() : null,
     );
 
-    ref.read(tcpServerProvider.notifier).broadcast(startPacket);
+    final server = ref.read(tcpServerProvider.notifier);
+    server.buildRoomState = null; // Exit waiting room state
+    server.broadcast(startPacket);
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(

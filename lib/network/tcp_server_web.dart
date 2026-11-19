@@ -61,6 +61,7 @@ class TcpServer extends StateNotifier<TcpServerState> {
   MessageCallback? onMessageReceived;
   DisconnectCallback? onClientDisconnected;
   String Function()? buildSyncState;
+  String Function()? buildRoomState;
 
   Future<int> start({int? port}) async {
     throw UnsupportedError(
