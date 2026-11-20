@@ -35,13 +35,12 @@ Knightfall Chess eliminates all of that:
 
 | Lobby & Match Hub | Host QR & Connection | Active Tactical Match |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/lobby.png" width="260" alt="Lobby Screen" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Lobby+Screen';"/> | <img src="docs/screenshots/host_qr.png" width="260" alt="Host QR Screen" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Host+QR+Code';"/> | <img src="docs/screenshots/match.png" width="260" alt="Active Match Screen" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Active+Match';"/> |
+| <img src="docs/screenshots/lobby.JPEG " width="260" alt="Lobby Screen" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Lobby+Screen';"/> | <img src="docs/screenshots/host_qr.JPEG " width="260" alt="Host QR Screen" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Host+QR+Code';"/> | <img src="docs/screenshots/match.JPEG " width="260" alt="Active Match Screen" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Active+Match';"/> |
 
 | Move History Navigation | Browser Web Guest | Custom Board & Piece Themes |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/history.png" width="260" alt="History Navigation" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Move+History';"/> | <img src="docs/screenshots/web_client.png" width="260" alt="Web Client" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Web+Guest+Client';"/> | <img src="docs/screenshots/themes.png" width="260" alt="Theme Customization" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Theme+Selector';"/> |
+| <img src="docs/screenshots/history.JPEG" width="260" alt="History Navigation" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Move+History';"/> | <img src="docs/screenshots/web_client.png" width="260" alt="Web Client" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Web+Guest+Client';"/> | <img src="docs/screenshots/themes.JPEG " width="260" alt="Theme Customization" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Theme+Selector';"/> |
 
-> *Tip: Place your screenshots into `docs/screenshots/` (`lobby.png`, `host_qr.png`, `match.png`, `history.png`, `web_client.png`, `themes.png`) to display them here.*
 
 ---
 
