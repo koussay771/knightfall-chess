@@ -171,13 +171,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             final lastMove = updated.moveHistory.isNotEmpty
                 ? updated.moveHistory.last
                 : null;
+            final pieceType = lastMove?['piece'] as String?;
+            final flags = lastMove?['flags'] as String? ?? '';
+            final isCastle = flags.contains('k') || flags.contains('q');
+            final isEnPassant = flags.contains('e');
             final wasCapture = lastMove != null &&
                 (lastMove['captured'] != null ||
                     (lastMove['san'] as String? ?? '').contains('x'));
-            if (wasCapture) {
-              SoundManager.instance.playCapture();
+            if (isCastle) {
+              SoundManager.instance.playMove(isCastle: true, pieceType: pieceType);
+            } else if (wasCapture) {
+              SoundManager.instance.playCapture(pieceType: pieceType, isEnPassant: isEnPassant);
             } else {
-              SoundManager.instance.playMove();
+              SoundManager.instance.playMove(pieceType: pieceType);
             }
           }
         }
@@ -275,13 +281,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           final lastM = updated2.moveHistory.isNotEmpty
               ? updated2.moveHistory.last
               : null;
+          final pieceType2 = lastM?['piece'] as String?;
+          final flags2 = lastM?['flags'] as String? ?? '';
+          final isCastle2 = flags2.contains('k') || flags2.contains('q');
+          final isEnPassant2 = flags2.contains('e');
           final wasCap = lastM != null &&
               (lastM['captured'] != null ||
                   (lastM['san'] as String? ?? '').contains('x'));
-          if (wasCap) {
-            SoundManager.instance.playCapture();
+          if (isCastle2) {
+            SoundManager.instance.playMove(isCastle: true, pieceType: pieceType2);
+          } else if (wasCap) {
+            SoundManager.instance.playCapture(pieceType: pieceType2, isEnPassant: isEnPassant2);
           } else {
-            SoundManager.instance.playMove();
+            SoundManager.instance.playMove(pieceType: pieceType2);
           }
         }
       }
@@ -575,12 +587,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           final lastMove = updatedBoard.moveHistory.isNotEmpty
               ? updatedBoard.moveHistory.last
               : null;
+          final pieceType = lastMove?['piece'] as String?;
+          final flags = lastMove?['flags'] as String? ?? '';
+          final isCastle = flags.contains('k') || flags.contains('q');
+          final isEnPassant = flags.contains('e');
           final wasCapture =
               lastMove != null && (lastMove['captured'] != null || (lastMove['san'] as String? ?? '').contains('x'));
-          if (wasCapture) {
-            SoundManager.instance.playCapture();
+          if (isCastle) {
+            SoundManager.instance.playMove(isCastle: true, pieceType: pieceType);
+          } else if (wasCapture) {
+            SoundManager.instance.playCapture(pieceType: pieceType, isEnPassant: isEnPassant);
           } else {
-            SoundManager.instance.playMove();
+            SoundManager.instance.playMove(pieceType: pieceType);
           }
         }
       }
