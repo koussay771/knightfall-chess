@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/theme_constants.dart';
 import '../../core/providers/user_profile_provider.dart';
+import '../../core/widgets/animated_background_switcher.dart';
 import '../game/game_screen.dart';
 import '../history/history_screen.dart';
 import '../profile_themes/profile_tab.dart';
@@ -34,8 +35,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg1,
-      body: IndexedStack(index: _selectedIndex, children: _tabs),
+      backgroundColor: Colors.transparent,
+      body: AnimatedBackgroundSwitcher(
+        child: IndexedStack(index: _selectedIndex, children: _tabs),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (i) => setState(() => _selectedIndex = i),

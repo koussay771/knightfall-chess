@@ -81,9 +81,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     _detectLocalIp();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Sync sound theme from provider into SoundManager singleton.
-      final soundTheme = ref.read(soundThemeProvider);
-      SoundManager.instance.setTheme(soundTheme);
+      // Sync active board & piece theme into SoundManager
+      final boardTheme = ref.read(boardThemeProvider);
+      final pieceTheme = ref.read(pieceThemeProvider);
+      SoundManager.instance.updateThemes(
+        boardTheme: boardTheme,
+        pieceTheme: pieceTheme,
+      );
 
       ref.read(chessBoardProvider.notifier).reset(
             mode: widget.gameMode == 'koth'
@@ -238,7 +242,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
   }
 
-  void _handleIncomingMessage(Map<String, dynamic> msg) {
+  Future<void> _handleIncomingMessage(Map<String, dynamic> msg) async {
     if (!mounted) return;
     final type = SyncProtocol.normalizeType(msg['type'] as String?);
 
@@ -252,6 +256,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
       if (whiteMs != null) _whiteTimeMs = whiteMs;
       if (blackMs != null) _blackTimeMs = blackMs;
+
+      final prevSelected = ref.read(chessBoardProvider).selectedSquare;
+      final premoveState = ref.read(premoveProvider);
 
       final notifier = ref.read(chessBoardProvider.notifier);
       final moveSuccess = notifier.makeMove(from, to, promotion: promotion);
@@ -280,7 +287,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       }
       setState(() => _viewingPlyIndex = null);
       _scrollToLatestMove();
-      _checkPremoveTrigger();
+      await _processPremoveOrPreserveSelection(prevSelected, premoveState);
 
       final updated = ref.read(chessBoardProvider);
       if (updated.isGameOver) {
@@ -649,37 +656,106 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _handlePremoveTap(String square) {
-    if (_premoveStartSquare == null) {
+    final board = ref.read(chessBoardProvider);
+    final chess = chess_pkg.Chess.fromFEN(board.fen);
+    final pieceOnSquare = chess.get(square);
+    final myColorEnum = widget.myColor == 'white'
+        ? chess_pkg.Color.WHITE
+        : chess_pkg.Color.BLACK;
+    final isFriendly =
+        pieceOnSquare != null && pieceOnSquare.color == myColorEnum;
+    final selected = board.selectedSquare;
+
+    if (selected == null) {
+      if (isFriendly) {
+        // First tap: select friendly piece to inspect legal path / start premove
+        _premoveStartSquare = square;
+        ref
+            .read(chessBoardProvider.notifier)
+            .selectSquare(square, playerColor: widget.myColor);
+        ref.read(premoveProvider.notifier).setPremove(square, square);
+      }
+    } else if (selected == square) {
+      // Tap same square again -> deselect
+      _premoveStartSquare = null;
+      ref
+          .read(chessBoardProvider.notifier)
+          .selectSquare(square, playerColor: widget.myColor);
+      ref.read(premoveProvider.notifier).clearPremove();
+    } else if (isFriendly) {
+      // Tap another friendly piece -> smoothly switch selection!
       _premoveStartSquare = square;
+      ref
+          .read(chessBoardProvider.notifier)
+          .selectSquare(square, playerColor: widget.myColor);
       ref.read(premoveProvider.notifier).setPremove(square, square);
     } else {
-      final from = _premoveStartSquare!;
+      // Target square -> queue premove from selected to target
+      final from = selected;
+      _premoveStartSquare = null;
+      ref.read(chessBoardProvider.notifier).clearSelection();
+      ref.read(premoveProvider.notifier).setPremove(from, square);
+      if (_fxEnabled) SoundManager.instance.playPremove();
+    }
+  }
+
+  Future<void> _processPremoveOrPreserveSelection(
+      String? prevSelectedSquare, PremoveState premoveState) async {
+    final updatedBoard = ref.read(chessBoardProvider);
+    if (updatedBoard.isGameOver) return;
+    if (updatedBoard.currentTurn != widget.myColor) return;
+
+    final postChess = chess_pkg.Chess.fromFEN(updatedBoard.fen);
+
+    // Case 1: Full premove queued (from != to)
+    if (premoveState.hasPremove && premoveState.from != premoveState.to) {
+      final pFrom = premoveState.from!;
+      final pTo = premoveState.to!;
+      final isPawn = _isPawn(updatedBoard.fen, pFrom);
+      final promo = isPawn && _isPromotionRank(widget.myColor, pTo)
+          ? (premoveState.promotion ?? 'q')
+          : premoveState.promotion;
+
+      ref.read(premoveProvider.notifier).clearPremove();
       _premoveStartSquare = null;
 
-      if (from == square) {
-        ref.read(premoveProvider.notifier).clearPremove();
+      final isLegal =
+          MoveValidator.isLegal(postChess, pFrom, pTo, promotion: promo);
+      if (isLegal) {
+        // Automatically execute the queued move without error
+        await _attemptPlayerMove(pFrom, pTo, promoOverride: promo);
       } else {
-        ref.read(premoveProvider.notifier).setPremove(from, square);
+        // Silently cancel without throwing illegal move alert or error sound
+      }
+      return;
+    }
+
+    // Case 2: User selected a piece to inspect its legal path or started premove
+    final sq = prevSelectedSquare ??
+        _premoveStartSquare ??
+        (premoveState.hasPremove ? premoveState.from : null);
+
+    if (sq != null) {
+      final piece = postChess.get(sq);
+      final myColorEnum = widget.myColor == 'white'
+          ? chess_pkg.Color.WHITE
+          : chess_pkg.Color.BLACK;
+      if (piece != null && piece.color == myColorEnum) {
+        // Recalculate legal destination squares for the currently selected piece
+        // on the new board state silently!
+        ref.read(chessBoardProvider.notifier).selectSquare(sq);
+        _premoveStartSquare = sq;
+      } else {
+        ref.read(chessBoardProvider.notifier).clearSelection();
+        _premoveStartSquare = null;
       }
     }
   }
 
   void _checkPremoveTrigger() {
     final premoveState = ref.read(premoveProvider);
-    if (!premoveState.hasPremove) return;
-
-    final board = ref.read(chessBoardProvider);
-    if (board.currentTurn != widget.myColor) return;
-
-    final from = premoveState.from!;
-    final to = premoveState.to!;
-
-    final isPawn = _isPawn(board.fen, from);
-    final promo =
-        isPawn && _isPromotionRank(board.currentTurn, to) ? 'q' : null;
-
-    ref.read(premoveProvider.notifier).clearPremove();
-    _attemptPlayerMove(from, to, promoOverride: promo);
+    final prevSelected = ref.read(chessBoardProvider).selectedSquare;
+    _processPremoveOrPreserveSelection(prevSelected, premoveState);
   }
 
   bool _isPawn(String fen, String square) {
@@ -1080,6 +1156,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final premove = ref.watch(premoveProvider);
     final themeId = ref.watch(boardThemeProvider);
     final pieceTheme = ref.watch(pieceThemeProvider);
+    SoundManager.instance.updateThemes(boardTheme: themeId, pieceTheme: pieceTheme);
     final themeColors = AppThemes.boardThemes[themeId] ??
         const [Color(0xFFCFD8DC), Color(0xFF16202C)];
 

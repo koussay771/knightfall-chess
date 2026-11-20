@@ -193,11 +193,12 @@ class ChessBoardNotifier extends StateNotifier<ChessBoardState> {
   // selectSquare
   // -------------------------------------------------------------------------
 
-  /// Select a square.  Legal targets are stored internally; they are NEVER
-  /// exposed as UI dots — only the selected square highlight is used (per spec).
+  /// Select a square. Legal targets are stored internally and exposed for dots/highlights.
+  /// If [playerColor] is provided, allows selecting that player's pieces even during
+  /// the opponent's turn to inspect movement paths or prepare a premove.
   ///
-  /// Returns the list of legal target squares (for internal engine use only).
-  List<String> selectSquare(String square) {
+  /// Returns the list of legal target squares.
+  List<String> selectSquare(String square, {String? playerColor}) {
     if (state.isGameOver) return [];
 
     _chess = Chess.fromFEN(state.fen);
@@ -214,24 +215,41 @@ class ChessBoardNotifier extends StateNotifier<ChessBoardState> {
     final piece = _chess.get(square);
     final turnColor = _chess.turn == Color.WHITE ? 'white' : 'black';
 
-    // Only allow selecting own pieces on own turn.
+    // Only allow selecting own pieces.
     if (piece == null) {
       state = state.copyWith(selectedSquare: null, legalTargets: []);
       return [];
     }
     final pieceColor = piece.color == Color.WHITE ? 'white' : 'black';
-    if (pieceColor != turnColor) {
-      // Could be a premove — let the premove handler deal with it.
+    final targetColor = playerColor ?? turnColor;
+    if (pieceColor != targetColor) {
       state = state.copyWith(selectedSquare: null, legalTargets: []);
       return [];
     }
 
-    final targets = MoveValidator.getMoves(_chess, square);
+    List<String> targets;
+    if (pieceColor == turnColor) {
+      targets = MoveValidator.getMoves(_chess, square);
+    } else {
+      // Inspecting piece or preparing premove during opponent's turn:
+      // compute hypothetical moves for this piece color.
+      final fenParts = state.fen.split(' ');
+      fenParts[1] = (pieceColor == 'white') ? 'w' : 'b';
+      final hypothetical =
+          Chess.fromFEN(fenParts.join(' '), check_validity: false);
+      targets = MoveValidator.getMoves(hypothetical, square);
+    }
+
     state = state.copyWith(
       selectedSquare: square,
       legalTargets: targets,
     );
     return targets;
+  }
+
+  /// Silently clears piece selection and legal target dots.
+  void clearSelection() {
+    state = state.copyWith(selectedSquare: null, legalTargets: []);
   }
 
   // -------------------------------------------------------------------------

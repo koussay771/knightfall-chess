@@ -32,19 +32,37 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/logo/
+    - assets/backgound_app/
+    - assets/board/
+    - assets/board/svg/
     - assets/sounds/
     - assets/sound/
-    - assets/sound/standard/
-    - assets/sound/woodland/
-    - assets/sound/piano/
-    - assets/sound/sfx/
+    - assets/sound/anarcandy/
+    - assets/sound/beat/
+    - assets/sound/blue-marble/
+    - assets/sound/canvas2/
+    - assets/sound/default/
     - assets/sound/futuristic/
+    - assets/sound/green/
     - assets/sound/instrument/
-    - assets/sound/lisp/
+    - assets/sound/instrument/celesta/
+    - assets/sound/instrument/clav/
+    - assets/sound/instrument/swells/
+    - assets/sound/lolz/
+    - assets/sound/metal/
+    - assets/sound/metal1/
     - assets/sound/nes/
-    - assets/sound/other/
+    - assets/sound/nes/stock/
+    - assets/sound/newspaper/
+    - assets/sound/piano/
+    - assets/sound/piano/stock/
     - assets/sound/robot/
-    - assets/board/
+    - assets/sound/sfx/
+    - assets/sound/sfx/stock/
+    - assets/sound/silly/
+    - assets/sound/standard/
+    - assets/sound/wood/
     - assets/piece/alpha/
     - assets/piece/anarcandy/
     - assets/piece/caliente/

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/constants/theme_constants.dart';
 import '../../core/utils/network_utils.dart';
+import '../../core/widgets/animated_background_switcher.dart';
 import '../../network/sync_protocol.dart';
 import '../../network/tcp_client.dart';
 import '../../network/udp_discovery.dart';
@@ -195,13 +196,14 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
     final clientState = ref.watch(tcpClientProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.bg1,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Join Match Hub'),
-        backgroundColor: AppColors.bg1,
+        backgroundColor: Colors.transparent,
       ),
-      body: Column(
-        children: [
+      body: AnimatedBackgroundSwitcher(
+        child: Column(
+          children: [
           // Name field — compact, always visible
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -391,6 +393,7 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

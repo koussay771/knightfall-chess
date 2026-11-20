@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/theme_constants.dart';
 import '../../core/utils/network_utils.dart';
+import '../../core/widgets/animated_background_switcher.dart';
 import '../../engine/chess_board_state.dart';
 import '../../network/sync_protocol.dart';
 import '../../network/tcp_server.dart';
@@ -175,7 +176,7 @@ class _HostScreenState extends ConsumerState<HostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg1,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(
           _hostingState == _HostingState.setup ? 'Host Match Hub' : 'Waiting Room',
@@ -188,11 +189,13 @@ class _HostScreenState extends ConsumerState<HostScreen> {
           },
         ),
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 280),
-        child: _hostingState == _HostingState.setup
-            ? _buildSetup(context)
-            : _buildWaiting(context),
+      body: AnimatedBackgroundSwitcher(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          child: _hostingState == _HostingState.setup
+              ? _buildSetup(context)
+              : _buildWaiting(context),
+        ),
       ),
     );
   }
