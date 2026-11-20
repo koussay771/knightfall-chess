@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -123,12 +125,20 @@ class TcpClient extends StateNotifier<TcpClientState> {
       if (host.contains(':')) host = host.substring(0, host.indexOf(':'));
 
       final port = _cachedPort ?? AppConstants.defaultPort;
+      // Always use plain ws:// — the embedded HttpServer uses HTTP (not HTTPS)
       final wsUri = Uri.parse('ws://$host:$port/ws');
 
       _channel = WebSocketChannel.connect(wsUri);
 
-      // Wait for WebSocket handshake to be ready with a 4 second timeout
-      await _channel!.ready.timeout(const Duration(seconds: 4));
+      // Wait for the WebSocket handshake to complete.
+      // Use 8 seconds — first hotspot association adds ~2-3s RTT overhead.
+      await _channel!.ready.timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
+          throw SocketException(
+              'WebSocket handshake timed out connecting to $wsUri');
+        },
+      );
 
       _buffer.clear();
       _updateStatus(TcpClientStatus.connected);
@@ -155,7 +165,13 @@ class TcpClient extends StateNotifier<TcpClientState> {
       _startPingCycle();
       return true;
     } catch (e) {
-      _onSocketClosed(error: 'Host unreachable or connection timed out.');
+      // Catch SocketException, WebSocketChannelException, TimeoutException, etc.
+      final msg = e is SocketException
+          ? 'Network error: ${e.message}'
+          : e.toString().contains('timed out')
+              ? 'Connection timed out — ensure you are on the same Wi-Fi/hotspot.'
+              : 'Host unreachable or connection refused.';
+      _onSocketClosed(error: msg);
       return false;
     }
   }

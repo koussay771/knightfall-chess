@@ -100,33 +100,45 @@ class TcpServer extends StateNotifier<TcpServerState> {
 
   /// Starts the embedded HTTP & WebSocket server on 0.0.0.0.
   /// Binds to [port] (defaulting to [AppConstants.defaultPort] 8080).
+  /// Returns the actual bound port on success, or throws a [SocketException]
+  /// with a clear message if all candidate ports are unavailable.
   Future<int> start({int? port}) async {
     if (state.isRunning && _httpServer != null) return _httpServer!.port;
 
     int bindPort = port ?? AppConstants.defaultPort;
 
-    try {
-      _httpServer = await HttpServer.bind(InternetAddress.anyIPv4, bindPort);
-    } catch (e) {
-      // If default port is taken and no explicit port was forced, try fallbacks
-      if (port == null) {
-        for (final fallback in [8081, 8082, 8888, 4545]) {
-          try {
-            _httpServer =
-                await HttpServer.bind(InternetAddress.anyIPv4, fallback);
-            bindPort = fallback;
-            break;
-          } catch (_) {}
-        }
+    // Try the requested port first, then fallbacks if none was forced.
+    final candidates =
+        (port != null) ? [port] : [bindPort, 8081, 8082, 8888, 4545];
+
+    for (final candidate in candidates) {
+      try {
+        _httpServer =
+            await HttpServer.bind(InternetAddress.anyIPv4, candidate);
+        bindPort = candidate;
+        break;
+      } on SocketException {
+        // Port busy — try next candidate
       }
-      if (_httpServer == null) rethrow;
+    }
+
+    if (_httpServer == null) {
+      throw SocketException(
+          'Unable to bind HTTP server on any candidate port '
+          '(tried: ${candidates.join(", ")}). '
+          'Check that another app is not using the port and that '
+          'Windows Firewall / Android network permissions allow it.');
     }
 
     state = state.copyWith(isRunning: true, port: _httpServer!.port);
 
     _httpServer!.listen(
       _handleRequest,
-      onError: (e) => stop(),
+      // Do NOT tear down the whole server on a single request error.
+      // Log and continue so one bad client can't kill the host session.
+      onError: (e) {
+        // ignore individual request-level errors; server keeps running
+      },
       cancelOnError: false,
     );
 
@@ -195,14 +207,18 @@ class TcpServer extends StateNotifier<TcpServerState> {
     final uriPath = request.uri.path == '/' ? '/index.html' : request.uri.path;
     final safePath = uriPath.replaceAll('..', '');
 
-    // 1. Direct assets serving on disk (e.g. /assets/sound/..., /assets/piece/...)
+    // 1. Direct asset serving — resolve relative to the Flutter process
+    //    working directory (native) or the app bundle assets root.
     if (safePath.startsWith('/assets/')) {
+      // Try absolute path relative to CWD (works in debug/Windows)
       final assetFile = File(safePath.substring(1));
       if (assetFile.existsSync()) {
         _setMimeType(request.response, assetFile.path);
         await assetFile.openRead().pipe(request.response);
         return;
       }
+      // On Android the working directory is not the project root; skip to
+      // fallback rather than returning a 404 that breaks the page.
     }
 
     // 2. Check if Flutter Web bundle (build/web) exists on disk

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -77,10 +79,51 @@ class _HostScreenState extends ConsumerState<HostScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('player_name', name);
 
-    final ip = await NetworkUtils.getLocalIpAddress() ?? '127.0.0.1';
+    // Always re-resolve the IP right before starting so the QR code is fresh.
+    final ip = await NetworkUtils.getLocalIpAddress();
+
+    if (ip == null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not detect a local hotspot / Wi-Fi IP address.\n'
+            'Enable your mobile hotspot or connect to a Wi-Fi network, then try again.',
+          ),
+          backgroundColor: AppColors.loss,
+          duration: Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
 
     final server = ref.read(tcpServerProvider.notifier);
-    final boundPort = await server.start();
+
+    int boundPort;
+    try {
+      boundPort = await server.start();
+    } on SocketException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start server: ${e.message}'),
+            backgroundColor: AppColors.loss,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unexpected error starting server: $e'),
+            backgroundColor: AppColors.loss,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
 
     // Register waiting room state builder so any connecting client immediately
     // receives the current room status and player roster.
@@ -110,7 +153,7 @@ class _HostScreenState extends ConsumerState<HostScreen> {
 
     setState(() {
       _hostingState = _HostingState.waiting;
-      _hostIp = ip;
+      _hostIp = ip!;
       _hostPort = boundPort;
     });
 
