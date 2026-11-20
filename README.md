@@ -39,7 +39,7 @@ Knightfall Chess eliminates all of that:
 
 | Move History Navigation | Browser Web Guest | Custom Board & Piece Themes |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/history.JPEG" width="260" alt="History Navigation" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Move+History';"/> | <img src="docs/screenshots/web_client.png" width="260" alt="Web Client" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Web+Guest+Client';"/> | <img src="docs/screenshots/themes.JPEG " width="260" alt="Theme Customization" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Theme+Selector';"/> |
+| <img src="docs/screenshots/history.png" width="260" alt="History Navigation" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Move+History';"/> | <img src="docs/screenshots/web_client.png" width="260" alt="Web Client" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Web+Guest+Client';"/> | <img src="docs/screenshots/themes.JPEG " width="260" alt="Theme Customization" onerror="this.src='https://placehold.co/300x600/0E141C/00FF88?text=Theme+Selector';"/> |
 
 
 ---
